@@ -12,7 +12,7 @@ import {
 import { 
   Sparkles, ShieldAlert, Award, FileSpreadsheet, Send, Search, BrainCircuit,
   TrendingUp, Users, HeartHandshake, AlertTriangle, MessageSquare, Briefcase, Plus, CheckCircle, Flame, Settings, Info, ShieldCheck, HelpCircle,
-  Printer, FileText
+  Printer, FileText, Calendar, Star, Clock, MapPin
 } from "lucide-react";
 import { 
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend 
@@ -63,9 +63,29 @@ export default function Dashboard({
   });
 
   // Active sub-navigation tabs based on role
-  const [volunteerTab, setVolunteerTab] = useState<"explore" | "rag">("explore");
+  const [volunteerTab, setVolunteerTab] = useState<"explore" | "calendar" | "rag">("explore");
   const [ngoTab, setNgoTab] = useState<"planner" | "events" | "matching">("planner");
   const [csrTab, setCsrTab] = useState<"analytics" | "emergency" | "budget">("analytics");
+
+  // Feedback, Archival & Calendar states
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [feedbackCampaignId, setFeedbackCampaignId] = useState("");
+  const [feedbackRating, setFeedbackRating] = useState(5);
+  const [feedbackText, setFeedbackText] = useState("");
+  const [feedbackAnonymous, setFeedbackAnonymous] = useState(false);
+  const [feedbackHistory, setFeedbackHistory] = useState<any[]>(() => {
+    const saved = localStorage.getItem("ai_impact_feedbacks");
+    return saved ? JSON.parse(saved) : [
+      { id: "f1", campaignTitle: "Coastal and River Plastic Recovery", rating: 5, comment: "Incredible, well-structured campaign with stellar coordination!", date: "2026-06-15", anonymous: false }
+    ];
+  });
+
+  const [savedArchives, setSavedArchives] = useState<string[]>(() => {
+    const saved = localStorage.getItem("social_impact_archive_list");
+    return saved ? JSON.parse(saved) : ["Archive_FY2026_Q1", "Archive_Midyear_2026"];
+  });
+
+  const [selectedCalendarDay, setSelectedCalendarDay] = useState<any | null>(null);
 
   // Global Printable summary report modal state
   const [showPrintReport, setShowPrintReport] = useState(false);
@@ -400,6 +420,119 @@ export default function Dashboard({
   // Computations for Analytics
   const impactSummary = runImpactReport(events);
 
+  const leaderboardData = [
+    { name: "Aarav Mehta", score: 94, badges: 6, role: "Volunteer", avatar: "🏆", color: "text-amber-500" },
+    { name: "Divya Hari Kumar", score: 88, badges: 4, role: "Core Volunteer (You)", avatar: "🥈", color: "text-slate-300" },
+    { name: "Save Western Ghats Foundation", score: 91, badges: 8, role: "NGO Organization", avatar: "🏅", color: "text-teal-400" },
+    { name: "Elena Rostova", score: 85, badges: 3, role: "Volunteer", avatar: "🥉", color: "text-amber-700" },
+    { name: "Teach for India Initiatives", score: 83, badges: 7, role: "NGO Organization", avatar: "🎖️", color: "text-indigo-400" }
+  ].sort((a, b) => b.score - a.score);
+
+  // Export to JSON
+  const handleExportJSON = () => {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({
+      timestamp: new Date().toISOString(),
+      userProfile: {
+        username: userProfile.username,
+        role: userProfile.role,
+        xp: userProfile.xp,
+        level: userProfile.level,
+        streak: userProfile.streak,
+        reputationScore: userProfile.reputationScore,
+        badges: userProfile.badges,
+        preferredCauses: userProfile.preferredCauses
+      },
+      campaignsMatched: events.filter(e => e.volunteersMatched.includes("v1")).map(e => ({
+        id: e.id,
+        title: e.title,
+        ngo: e.ngoName,
+        location: e.location,
+        status: e.status,
+        sdgs: e.sdgs
+      })),
+      feedbackHistory
+    }, null, 2));
+    
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute("href", dataStr);
+    downloadAnchor.setAttribute("download", `social_impact_portfolio_${userProfile.username.toLowerCase().replace(/\s+/g, '_')}.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+
+    if (onTriggerNotification) {
+      onTriggerNotification("Exported activity history JSON successfully!", "sync");
+    }
+  };
+
+  // Export to CSV
+  const handleExportCSV = () => {
+    let csvContent = "data:text/csv;charset=utf-8,";
+    csvContent += "Type,Item Title,Organization/Scope,Status,Metadata\n";
+    
+    csvContent += `Profile,${userProfile.username},Role: ${userProfile.role},Level ${userProfile.level},Reputation ${userProfile.reputationScore}/100\n`;
+    
+    const registered = events.filter(e => e.volunteersMatched.includes("v1"));
+    registered.forEach(e => {
+      csvContent += `Campaign,"${e.title}","${e.ngoName}",${e.status},"${e.location} (SDGs: ${e.sdgs.join(' ')})"\n`;
+    });
+
+    feedbackHistory.forEach(f => {
+      csvContent += `Feedback,"${f.campaignTitle}",Rating: ${f.rating}/5,Submitted,"${f.comment.replace(/"/g, '""')}"\n`;
+    });
+
+    const encodedUri = encodeURI(csvContent);
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute("href", encodedUri);
+    downloadAnchor.setAttribute("download", `social_impact_portfolio_${userProfile.username.toLowerCase().replace(/\s+/g, '_')}.csv`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+
+    if (onTriggerNotification) {
+      onTriggerNotification("Exported activity history CSV successfully!", "sync");
+    }
+  };
+
+  // Archival to Local Browser Storage
+  const handleArchiveLocalStorage = () => {
+    const archiveKey = `social_impact_archive_${Date.now()}`;
+    const archiveName = `Archive_${userProfile.username.split(' ')[0]}_${new Date().toLocaleDateString('en-IN').replace(/\//g, '-')}_${new Date().toLocaleTimeString('en-IN', {hour: '2-digit', minute:'2-digit'}).replace(/\s/g, '')}`;
+    
+    const archiveData = {
+      archiveName,
+      timestamp: new Date().toISOString(),
+      userProfile,
+      events: events.filter(e => e.volunteersMatched.includes("v1")),
+      feedbackHistory
+    };
+
+    localStorage.setItem(archiveKey, JSON.stringify(archiveData));
+    
+    const updatedList = [...savedArchives, archiveName];
+    setSavedArchives(updatedList);
+    localStorage.setItem("social_impact_archive_list", JSON.stringify(updatedList));
+
+    if (onTriggerNotification) {
+      onTriggerNotification(`Offline Archive "${archiveName}" saved to browser local storage!`, "sync");
+    }
+  };
+
+  // Clear Archives
+  const handleClearArchives = () => {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith("social_impact_archive_")) {
+        localStorage.removeItem(key);
+      }
+    }
+    localStorage.removeItem("social_impact_archive_list");
+    setSavedArchives([]);
+    if (onTriggerNotification) {
+      onTriggerNotification("Cleared browser local storage archives.", "sync");
+    }
+  };
+
   return (
     <div className="space-y-6">
 
@@ -503,6 +636,153 @@ export default function Dashboard({
               <Printer className="w-4 h-4" />
               <span>Generate Printable Summary</span>
             </button>
+          </div>
+        </div>
+      </div>
+
+      {/* SECOND BENTO ROW: LEADERBOARD & OFFLINE ARCHIVAL EXPORTS */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in no-print">
+        {/* Widget 1: Global Impact Leaderboard */}
+        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-xl relative overflow-hidden flex flex-col justify-between">
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-500 to-amber-600"></div>
+          <div>
+            <div className="flex justify-between items-center mb-3">
+              <h4 className="text-sm font-bold text-slate-100 flex items-center gap-1.5 font-sans">
+                <Award className="w-4 h-4 text-amber-400" />
+                Global Impact Leaderboard
+              </h4>
+              <span className="text-[9px] bg-amber-950 text-amber-300 border border-amber-800 px-1.5 py-0.5 rounded font-mono font-bold uppercase">
+                TOP 5
+              </span>
+            </div>
+            <p className="text-[10px] text-slate-400 mb-4 leading-relaxed font-sans">
+              Top volunteers and organizations aligned on national UN-SDGs contribution index. Keep active to increase rank!
+            </p>
+
+            <div className="space-y-2">
+              {leaderboardData.map((leader, index) => {
+                const isUser = leader.name.includes("Divya Hari Kumar");
+                return (
+                  <div 
+                    key={index} 
+                    className={`flex items-center justify-between p-2 rounded-xl border text-xs transition-all ${
+                      isUser 
+                        ? "bg-indigo-950/40 border-indigo-500/50 text-indigo-200 font-medium" 
+                        : "bg-slate-950 border-slate-800 text-slate-300"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className={`w-5 h-5 flex items-center justify-center font-mono font-bold text-[10px] rounded-full ${
+                        index === 0 ? "bg-amber-500 text-slate-950" :
+                        index === 1 ? "bg-slate-300 text-slate-950" :
+                        index === 2 ? "bg-amber-700 text-slate-100" : "bg-slate-800 text-slate-400"
+                      }`}>
+                        {index + 1}
+                      </span>
+                      <div className="truncate">
+                        <span className="font-bold text-slate-200 block truncate">{leader.name}</span>
+                        <span className="text-[9px] text-slate-500 block truncate">{leader.role}</span>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <span className="font-mono font-bold text-indigo-400">{leader.score}</span>
+                      <span className="text-[8px] text-slate-400 block">Rep score</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Widget 2: Portfolio Archival & Offline Exports */}
+        <div className="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-xl relative overflow-hidden flex flex-col justify-between">
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 to-emerald-500"></div>
+          <div>
+            <div className="flex justify-between items-center mb-3">
+              <h4 className="text-sm font-bold text-slate-100 flex items-center gap-1.5 font-sans">
+                <FileSpreadsheet className="w-4 h-4 text-indigo-400" />
+                Offline Portfolio Archival & Local Exports
+              </h4>
+              <span className="text-[9px] bg-emerald-950 text-emerald-300 border border-emerald-800 px-1.5 py-0.5 rounded font-mono font-bold uppercase">
+                Archive Engine v1.0
+              </span>
+            </div>
+            <p className="text-[10px] text-slate-400 mb-4 leading-relaxed font-sans">
+              Protect your records! Download your complete credential logs, campaign registries, badges, and qualitative feedbacks to backup locally or archive directly inside your safe browser offline storage.
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Left pane: Quick actions */}
+              <div className="space-y-3">
+                <span className="text-[9px] font-mono font-bold text-slate-400 block uppercase tracking-wider">
+                  Available File Exports
+                </span>
+                <div className="flex gap-2.5">
+                  <button
+                    onClick={handleExportJSON}
+                    className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-sans text-xs font-bold py-2.5 px-3 rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-sm"
+                  >
+                    <span>Download JSON Archive</span>
+                  </button>
+                  <button
+                    onClick={handleExportCSV}
+                    className="flex-1 bg-indigo-950 hover:bg-indigo-900 text-indigo-300 border border-indigo-800/60 font-sans text-xs font-bold py-2.5 px-3 rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-sm"
+                  >
+                    <span>Download CSV Log</span>
+                  </button>
+                </div>
+
+                <div className="border-t border-slate-800/40 my-3"></div>
+
+                <span className="text-[9px] font-mono font-bold text-slate-400 block uppercase tracking-wider">
+                  Direct Browser Storage Archival
+                </span>
+                <div className="flex gap-2.5">
+                  <button
+                    onClick={handleArchiveLocalStorage}
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-sans text-xs font-bold py-2.5 px-3 rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-sm"
+                  >
+                    <span>Commit Archive Backup</span>
+                  </button>
+                  {savedArchives.length > 0 && (
+                    <button
+                      onClick={handleClearArchives}
+                      className="text-rose-400 hover:text-rose-300 bg-rose-950/40 border border-rose-900/60 font-sans text-xs font-bold px-3 py-2 rounded-xl flex items-center justify-center transition-colors cursor-pointer"
+                      title="Clear Browser Local Storage Archives"
+                    >
+                      Clear Backups
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Right pane: Archives history list */}
+              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex flex-col justify-between">
+                <div>
+                  <span className="text-[9px] font-mono font-bold text-slate-400 block uppercase tracking-wider mb-2">
+                    Browser Commited Backups ({savedArchives.length})
+                  </span>
+                  <div className="space-y-1.5 max-h-24 overflow-y-auto font-mono text-[9px] text-slate-400">
+                    {savedArchives.length > 0 ? (
+                      savedArchives.map((arc, i) => (
+                        <div key={i} className="flex justify-between items-center p-1.5 bg-slate-900/40 border border-slate-850 rounded">
+                          <span className="truncate pr-1">{arc}</span>
+                          <span className="text-[8px] text-emerald-400 shrink-0 uppercase font-semibold">Offline Ok</span>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-6 text-slate-600 italic">
+                        No localized archives saved. Click 'Commit Archive Backup' to capture local snapshot.
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="text-[8.5px] text-slate-500 mt-2 text-right">
+                  Stored securely inside browser Sandbox LocalStorage space.
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -838,6 +1118,17 @@ export default function Dashboard({
                 <Settings className="w-3.5 h-3.5" />
                 <span>{showSettings ? "Close Settings" : "Personalize Profile"}</span>
               </button>
+
+              <button
+                onClick={() => {
+                  setFeedbackCampaignId(events[0]?.id || "");
+                  setShowFeedbackModal(true);
+                }}
+                className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl transition-colors cursor-pointer text-xs font-bold font-sans shadow-md"
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                <span>Provide Feedback</span>
+              </button>
             </div>
           </div>
 
@@ -864,6 +1155,15 @@ export default function Dashboard({
             >
               Explore Matches & Apply
               {volunteerTab === "explore" && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-500"></div>}
+            </button>
+            <button
+              onClick={() => setVolunteerTab("calendar")}
+              className={`pb-2.5 text-xs font-semibold relative transition-all ${
+                volunteerTab === "calendar" ? "text-indigo-400" : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              Event Schedule Calendar
+              {volunteerTab === "calendar" && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-500"></div>}
             </button>
             <button
               onClick={() => setVolunteerTab("rag")}
@@ -949,6 +1249,191 @@ export default function Dashboard({
                     </div>
                   </div>
                 )}
+              </div>
+            </div>
+          )}
+
+          {/* TAB: EVENT SCHEDULE CALENDAR */}
+          {volunteerTab === "calendar" && (
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-xl animate-fade-in">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 border-b border-slate-850 pb-4">
+                <div>
+                  <h4 className="text-sm font-bold text-slate-100 flex items-center gap-1.5">
+                    <Calendar className="w-4 h-4 text-indigo-400" />
+                    June 2026 Volunteering Schedule
+                  </h4>
+                  <p className="text-xs text-slate-400">
+                    Track your registered events, milestones deadlines, and national coordination check-ins.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 font-mono text-[10px] text-slate-400 bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                  <span>Registered campaigns highlighted in green</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Month Grid */}
+                <div className="lg:col-span-2 space-y-4">
+                  <div className="flex justify-between items-center bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+                    <span className="text-xs font-bold text-slate-500 select-none">‹ May 2026</span>
+                    <span className="text-xs font-black font-display text-indigo-400 uppercase tracking-widest">June 2026</span>
+                    <span className="text-xs font-bold text-slate-500 select-none">July 2026 ›</span>
+                  </div>
+
+                  <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-mono font-bold text-slate-500 uppercase tracking-wider mb-1">
+                    <div>Sun</div>
+                    <div>Mon</div>
+                    <div>Tue</div>
+                    <div>Wed</div>
+                    <div>Thu</div>
+                    <div>Fri</div>
+                    <div>Sat</div>
+                  </div>
+
+                  <div className="grid grid-cols-7 gap-2">
+                    {/* June 1st is Monday, so Sun is blank */}
+                    <div className="bg-slate-950/20 border border-transparent h-16 rounded-xl"></div>
+                    
+                    {Array.from({ length: 30 }).map((_, i) => {
+                      const day = i + 1;
+                      let dayEvent: any = null;
+                      if (day === 5) dayEvent = { id: "e3", title: "Western Ghats Afforestation Drive", time: "09:00 AM", location: "Kerala Western Slopes", sdg: "SDG 15", isRegistered: true };
+                      if (day === 12) dayEvent = { id: "e2", title: "Rural Health & Sanitation Camps", time: "10:30 AM", location: "Pune Outskirts", sdg: "SDG 3", isRegistered: false };
+                      if (day === 18) dayEvent = { id: "e1", title: "Coastal & River Plastic Recovery", time: "08:00 AM", location: "Juhu Beach Coast", sdg: "SDG 14", isRegistered: true };
+                      if (day === 24) dayEvent = { id: "e4", title: "SDG Centennial Active Hours check", time: "11:00 AM", location: "National Grid", sdg: "SDG 17", isRegistered: false };
+                      if (day === 29) dayEvent = { id: "e5", title: "Ecosystem Audit & Feedback Review", time: "05:00 PM", location: "Online Portal", sdg: "SDG 16", isRegistered: true };
+
+                      const isSelected = selectedCalendarDay?.day === day;
+
+                      return (
+                        <button
+                          key={day}
+                          onClick={() => {
+                            if (dayEvent) {
+                              setSelectedCalendarDay({ day, event: dayEvent });
+                            } else {
+                              setSelectedCalendarDay({ day, event: null });
+                            }
+                          }}
+                          className={`h-16 p-1.5 rounded-xl border text-left flex flex-col justify-between transition-all relative cursor-pointer ${
+                            isSelected 
+                              ? "bg-indigo-950/60 border-indigo-500 text-indigo-100" 
+                              : dayEvent 
+                                ? dayEvent.isRegistered
+                                  ? "bg-emerald-950/40 border-emerald-800/60 text-emerald-200"
+                                  : "bg-slate-950/90 border-indigo-950/80 hover:border-indigo-800/60 text-slate-300"
+                                : "bg-slate-950/40 border-slate-850 hover:border-slate-800 text-slate-400"
+                          }`}
+                        >
+                          <span className="text-[10px] font-mono font-bold">{day}</span>
+                          {dayEvent && (
+                            <div className={`w-1.5 h-1.5 rounded-full self-end ${
+                              dayEvent.isRegistered ? "bg-emerald-400" : "bg-indigo-400"
+                            } animate-pulse`} title={dayEvent.title}></div>
+                          )}
+                          {dayEvent && (
+                            <span className="text-[7.5px] truncate font-sans tracking-tight leading-none text-slate-400">
+                              {dayEvent.title.split(" ")[0]}...
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Event Sidebar Details */}
+                <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex flex-col justify-between">
+                  {selectedCalendarDay ? (
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center border-b border-slate-850 pb-2">
+                        <span className="text-[10px] font-mono font-bold text-slate-400">Selected Day: June {selectedCalendarDay.day}, 2026</span>
+                        <span className="text-[9px] text-indigo-400 bg-indigo-950 border border-indigo-900 px-1.5 rounded">Active</span>
+                      </div>
+                      
+                      {selectedCalendarDay.event ? (
+                        <div className="space-y-3">
+                          <span className={`text-[9px] font-mono font-bold px-2 py-0.5 rounded border ${
+                            selectedCalendarDay.event.isRegistered 
+                              ? "bg-emerald-950/50 text-emerald-300 border-emerald-900" 
+                              : "bg-indigo-950/50 text-indigo-300 border-indigo-900"
+                          }`}>
+                            {selectedCalendarDay.event.isRegistered ? "✓ Registered" : "Pending Registration"}
+                          </span>
+                          <h5 className="text-xs font-bold text-slate-200 leading-snug">{selectedCalendarDay.event.title}</h5>
+                          
+                          <div className="space-y-1.5 text-[10px] text-slate-400 font-mono">
+                            <div className="flex items-center gap-1.5">
+                              <Clock className="w-3.5 h-3.5 text-indigo-400" />
+                              <span>{selectedCalendarDay.event.time}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <MapPin className="w-3.5 h-3.5 text-indigo-400" />
+                              <span>{selectedCalendarDay.event.location}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />
+                              <span>Core SDGs: {selectedCalendarDay.event.sdg}</span>
+                            </div>
+                          </div>
+
+                          <div className="pt-2">
+                            {selectedCalendarDay.event.isRegistered ? (
+                              <div className="text-[9px] text-emerald-400 bg-emerald-950/30 p-2 border border-emerald-900/40 rounded-lg text-center">
+                                You are signed up for this campaign. Check-in on site to receive up to +25 XP rewards!
+                              </div>
+                            ) : (
+                              <button 
+                                onClick={() => {
+                                  setSelectedCalendarDay(prev => ({
+                                    ...prev,
+                                    event: { ...prev.event, isRegistered: true }
+                                  }));
+                                  onRewardXP(20);
+                                  if (onTriggerNotification) {
+                                    onTriggerNotification(`Signed up for "${selectedCalendarDay.event.title}"! +20 XP earned.`, "xp");
+                                  }
+                                }}
+                                className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-sans text-xs font-bold py-2 rounded-lg transition-colors cursor-pointer"
+                              >
+                                Sign Up Instantly (+20 XP)
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-center py-10 text-slate-500 italic">
+                          No direct national grid events scheduled on this day. Use 'Explore Matches' to browse other opportunities.
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-center py-12">
+                      <Calendar className="w-8 h-8 text-slate-700 mx-auto mb-2 animate-pulse" />
+                      <h5 className="text-xs font-bold text-slate-400 mb-1">Interactive Scheduler</h5>
+                      <p className="text-[10px] text-slate-500">
+                        Click on any highlighted day in the calendar grid to inspect event details, times, locations, and register instantly on the national SDG grid.
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="border-t border-slate-850 pt-3 mt-4">
+                    <span className="text-[9px] font-mono font-bold text-slate-400 block uppercase tracking-wider mb-2">
+                      Upcoming Milestones Deadlines
+                    </span>
+                    <div className="space-y-1.5 text-[9px] font-mono text-slate-400">
+                      <div className="flex justify-between items-center p-1 bg-slate-900 border border-slate-850 rounded">
+                        <span>June 5: Coastline afforestation</span>
+                        <span className="text-amber-400">5 Days left</span>
+                      </div>
+                      <div className="flex justify-between items-center p-1 bg-slate-900 border border-slate-850 rounded">
+                        <span>June 18: Mumbai beach cleanup</span>
+                        <span className="text-indigo-400">18 Days left</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -1740,6 +2225,134 @@ export default function Dashboard({
                 All allocations are calculated based exclusively on empirical credentials, geographic logistics, and verified completion rates. Protected class variables (gender, age, orientation, ethnicity) are programmatically ignored.
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 4. PROVIDE FEEDBACK MODAL */}
+      {showFeedbackModal && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fade-in no-print">
+          <div className="bg-slate-900 border-2 border-emerald-500/80 rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 text-slate-100 relative overflow-hidden animate-zoom-in">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-600/10 blur-3xl rounded-full"></div>
+
+            {/* Header */}
+            <div className="flex justify-between items-start">
+              <div className="flex items-center gap-2">
+                <MessageSquare className="w-5 h-5 text-emerald-400" />
+                <div>
+                  <h4 className="font-black text-slate-100 text-sm uppercase tracking-wider">Submit Qualitative Feedback</h4>
+                  <p className="text-[10px] text-slate-400 font-mono">Contribute to organizational growth & earn +15 XP!</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowFeedbackModal(false)}
+                className="text-slate-400 hover:text-slate-100 bg-slate-800 hover:bg-slate-700 px-2.5 py-1 rounded-xl text-xs font-mono font-bold cursor-pointer transition-colors"
+              >
+                CLOSE
+              </button>
+            </div>
+
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              if (!feedbackText.trim()) return;
+
+              const targetCampaign = events.find(ev => ev.id === feedbackCampaignId) || events[0];
+              const newFeedback = {
+                id: `f-${Date.now()}`,
+                campaignTitle: targetCampaign?.title || "Unknown Campaign",
+                rating: feedbackRating,
+                comment: feedbackText,
+                date: new Date().toISOString().split('T')[0],
+                anonymous: feedbackAnonymous
+              };
+
+              const updatedFeedbacks = [newFeedback, ...feedbackHistory];
+              setFeedbackHistory(updatedFeedbacks);
+              localStorage.setItem("ai_impact_feedbacks", JSON.stringify(updatedFeedbacks));
+
+              // Reset form & reward XP
+              setFeedbackText("");
+              setFeedbackRating(5);
+              setFeedbackAnonymous(false);
+              setShowFeedbackModal(false);
+              onRewardXP(15);
+              
+              if (onTriggerNotification) {
+                onTriggerNotification(`Thank you! Qualitative feedback recorded and +15 XP rewarded.`, "xp");
+              }
+            }} className="space-y-4">
+              
+              {/* Event selection */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-mono font-bold text-slate-400 block uppercase tracking-wider">Select Volunteered Campaign</label>
+                <select
+                  value={feedbackCampaignId}
+                  onChange={(e) => setFeedbackCampaignId(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500"
+                >
+                  {events.map(ev => (
+                    <option key={ev.id} value={ev.id}>
+                      {ev.title} ({ev.ngoName})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Star Rating Selection */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-mono font-bold text-slate-400 block uppercase tracking-wider">Volunteering Rating</label>
+                <div className="flex gap-2">
+                  {[1, 2, 3, 4, 5].map(num => (
+                    <button
+                      type="button"
+                      key={num}
+                      onClick={() => setFeedbackRating(num)}
+                      className={`p-2 rounded-lg border transition-all cursor-pointer ${
+                        num <= feedbackRating 
+                          ? "bg-amber-950/40 border-amber-600 text-amber-400" 
+                          : "bg-slate-950 border-slate-800 text-slate-600 hover:text-slate-400"
+                      }`}
+                    >
+                      <Star className={`w-5 h-5 ${num <= feedbackRating ? "fill-current" : ""}`} />
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Qualitative textarea */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-mono font-bold text-slate-400 block uppercase tracking-wider">Your Qualitative Feedback</label>
+                <textarea
+                  required
+                  placeholder="Share details about logistics, coordination, training, impact delivery, or other elements..."
+                  value={feedbackText}
+                  onChange={(e) => setFeedbackText(e.target.value)}
+                  className="w-full h-24 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500 placeholder-slate-600 resize-none font-sans"
+                />
+              </div>
+
+              {/* Anonymity Checkbox */}
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="anon-cb"
+                  checked={feedbackAnonymous}
+                  onChange={(e) => setFeedbackAnonymous(e.target.checked)}
+                  className="rounded bg-slate-950 border-slate-800 text-emerald-500 focus:ring-0"
+                />
+                <label htmlFor="anon-cb" className="text-[10px] text-slate-400 font-sans cursor-pointer select-none">
+                  Submit this review anonymously (your user profile won't be visible to NGOs)
+                </label>
+              </div>
+
+              {/* Action Button */}
+              <button
+                type="submit"
+                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-sans text-xs font-bold py-2.5 rounded-xl transition-colors cursor-pointer text-center"
+              >
+                Submit Qualitative Feedback & Receive +15 XP
+              </button>
+            </form>
           </div>
         </div>
       )}

@@ -40,15 +40,15 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
     const saved = localStorage.getItem("ai_connect_session");
     if (saved) return JSON.parse(saved);
-    // Initial Guest default to make testing fast for judges
+    // Initial Guest default to make testing fast for judges - keeping "Divya Hari Kumar" by default
     return {
-      username: "Aarav Volunteer",
+      username: "Divya Hari Kumar",
       role: "volunteer" as const,
-      xp: 45,
+      xp: 75,
       level: 1,
-      streak: 4,
-      badges: ["First Volunteer Event"],
-      reputationScore: 82,
+      streak: 5,
+      badges: ["First Volunteer Event", "SDG Pioneer"],
+      reputationScore: 88,
       savedReportsCount: 1,
       accentColor: "indigo",
       density: "cozy",
@@ -58,7 +58,7 @@ export default function App() {
   });
 
   // Login inputs
-  const [loginUsername, setLoginUsername] = useState("");
+  const [loginUsername, setLoginUsername] = useState("Divya Hari Kumar");
   const [loginRole, setLoginRole] = useState<UserRole>("volunteer");
   const [isRegistering, setIsRegistering] = useState(false);
 

@@ -198,7 +198,7 @@ export default function CommunityMilestones() {
                     key={`b-${m.id}`}
                     className={`p-2.5 rounded-xl border text-center flex flex-col items-center transition-all group relative ${
                       unlocked 
-                        ? "bg-slate-900 border-indigo-500/40 text-indigo-300" 
+                        ? "bg-slate-900 border-indigo-500/40 text-indigo-300 animate-badge-glow" 
                         : "bg-slate-900/40 border-slate-850 text-slate-500 opacity-40 grayscale"
                     }`}
                   >
