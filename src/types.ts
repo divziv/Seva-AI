@@ -13,6 +13,7 @@ export interface UserProfile {
   density?: "compact" | "cozy" | "spacious";
   preferredCauses?: string[];
   profileIcon?: string;
+  pinnedBadges?: string[];
 }
 
 export interface Volunteer {

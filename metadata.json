@@ -1,6 +1,6 @@
 {
-  "name": "AI Volunteer Connect",
-  "description": "An AI-powered offline-first volunteering, CSR, and NGO coordination platform designed for the India AI Impact Festival 2026.",
+  "name": "SevaAI",
+  "description": "Offline-First AI Platform for Volunteers, NGOs & CSR Collaboration. Connecting Volunteers, NGOs, CSR and Communities through Responsible AI.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

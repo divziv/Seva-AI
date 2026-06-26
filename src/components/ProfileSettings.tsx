@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { UserProfile } from "../types";
 import { 
-  User, Check, Sparkles, Heart, Globe, Shield, Activity, Award, Leaf, Smile, LayoutGrid, Palette 
+  User, Check, Sparkles, Heart, Globe, Shield, Activity, Award, Leaf, Smile, LayoutGrid, Palette, Pin
 } from "lucide-react";
 
 interface ProfileSettingsProps {
@@ -51,6 +51,7 @@ export default function ProfileSettings({ userProfile, onUpdateProfile }: Profil
   const [selectedIcon, setSelectedIcon] = useState(userProfile.profileIcon || "smile");
   const [accentColor, setAccentColor] = useState(userProfile.accentColor || "indigo");
   const [density, setDensity] = useState<"compact" | "cozy" | "spacious">(userProfile.density || "cozy");
+  const [pinnedBadges, setPinnedBadges] = useState<string[]>(userProfile.pinnedBadges || []);
 
   const handleCauseToggle = (cause: string) => {
     if (selectedCauses.includes(cause)) {
@@ -65,6 +66,19 @@ export default function ProfileSettings({ userProfile, onUpdateProfile }: Profil
     setSelectedIcon(PROFILE_ICONS[randomIndex]);
   };
 
+  const handleBadgePinToggle = (badge: string) => {
+    if (pinnedBadges.includes(badge)) {
+      setPinnedBadges(pinnedBadges.filter(b => b !== badge));
+    } else {
+      if (pinnedBadges.length >= 3) {
+        // limit to 3 pinned badges
+        alert("You can only pin up to 3 badges to your public showcase!");
+        return;
+      }
+      setPinnedBadges([...pinnedBadges, badge]);
+    }
+  };
+
   const handleSave = () => {
     const updated: UserProfile = {
       ...userProfile,
@@ -72,7 +86,8 @@ export default function ProfileSettings({ userProfile, onUpdateProfile }: Profil
       preferredCauses: selectedCauses,
       profileIcon: selectedIcon,
       accentColor,
-      density
+      density,
+      pinnedBadges
     };
     onUpdateProfile(updated);
   };
@@ -219,6 +234,52 @@ export default function ProfileSettings({ userProfile, onUpdateProfile }: Profil
                   ) : (
                     <span className="w-1.5 h-1.5 rounded-full bg-slate-300 shrink-0"></span>
                   )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Achievement Showcase (Pin Badges) */}
+        <div className="pt-4 border-t border-slate-800/60">
+          <div className="flex justify-between items-center mb-1">
+            <label className="text-[10px] text-slate-400 font-bold font-mono uppercase tracking-wider flex items-center gap-1.5">
+              <Award className="w-3.5 h-3.5 text-amber-400" />
+              Achievement Showcase ({pinnedBadges.length}/3 Pinned)
+            </label>
+            <span className="text-[8px] font-mono text-indigo-400 uppercase bg-indigo-950/60 border border-indigo-900 px-1.5 py-0.5 rounded">
+              Public Display
+            </span>
+          </div>
+          <p className="text-[10px] text-slate-400 mb-3 leading-tight font-sans">
+            Select up to 3 of your earned credentials or milestones to pin as featured achievements on your public profile card.
+          </p>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+            {(userProfile.badges && userProfile.badges.length > 0 ? userProfile.badges : ["First Volunteer Event", "SDG Pioneer"]).map(badge => {
+              const isPinned = pinnedBadges.includes(badge);
+              return (
+                <button
+                  key={badge}
+                  onClick={() => handleBadgePinToggle(badge)}
+                  className={`p-2.5 rounded-xl border text-left flex flex-col justify-between transition-all group relative cursor-pointer ${
+                    isPinned
+                      ? "bg-amber-950/30 border-amber-500/60 text-amber-200 shadow-md shadow-amber-900/10 scale-[1.02]"
+                      : "bg-slate-950 border-slate-800/80 text-slate-400 hover:border-slate-700 hover:text-slate-300"
+                  }`}
+                >
+                  <div className="flex justify-between items-start w-full mb-1">
+                    <span className={`p-1 rounded-lg ${isPinned ? "bg-amber-500/10 text-amber-400 animate-pulse" : "bg-slate-900 text-slate-500"}`}>
+                      <Award className="w-4 h-4" />
+                    </span>
+                    <Pin className={`w-3.5 h-3.5 transition-transform ${isPinned ? "text-amber-400 rotate-45 scale-110" : "text-slate-600 opacity-0 group-hover:opacity-100"}`} />
+                  </div>
+                  <div>
+                    <span className="text-[11px] font-bold block truncate leading-tight">{badge}</span>
+                    <span className="text-[8.5px] text-slate-500 block font-sans">
+                      {isPinned ? "Featured Badge" : "Tap to pin"}
+                    </span>
+                  </div>
                 </button>
               );
             })}

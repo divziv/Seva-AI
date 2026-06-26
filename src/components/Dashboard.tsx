@@ -87,6 +87,40 @@ export default function Dashboard({
 
   const [selectedCalendarDay, setSelectedCalendarDay] = useState<any | null>(null);
 
+  // Volunteer Quick-Start guide states
+  const [showQuickStartGuide, setShowQuickStartGuide] = useState(() => {
+    const saved = localStorage.getItem("social_impact_seen_quickstart");
+    return saved !== "true";
+  });
+
+  const [eventFilterToggle, setEventFilterToggle] = useState<"recommended" | "my" | "all">("all");
+
+  const [recentActivities, setRecentActivities] = useState<any[]>(() => {
+    const saved = localStorage.getItem("social_impact_recent_activities");
+    if (saved) return JSON.parse(saved);
+    return [
+      { id: "act-1", type: "reputation", message: "Reputation score increased to 88/100 following coastal recovery check-in.", date: "26 Jun 2026", xp: 25 },
+      { id: "act-2", type: "badge", message: "Unlocked badge: 'SDG Pioneer' for contributing to multiple climate action goals.", date: "24 Jun 2026", xp: 50 },
+      { id: "act-3", type: "event", message: "Successfully checked in and completed 'Rural Health Support Camp' at Pune Outskirts.", date: "22 Jun 2026", xp: 100 },
+      { id: "act-4", type: "streak", message: "Maintained a 5-day streak of coordination and active platform participation.", date: "21 Jun 2026", xp: 10 }
+    ];
+  });
+
+  const logActivity = (type: "reputation" | "badge" | "event" | "streak" | "feedback" | "signup", message: string, xp?: number) => {
+    const newAct = {
+      id: `act-${Date.now()}`,
+      type,
+      message,
+      date: new Date().toLocaleDateString("en-IN", { day: 'numeric', month: 'short', year: 'numeric' }),
+      xp
+    };
+    setRecentActivities(prev => {
+      const updated = [newAct, ...prev];
+      localStorage.setItem("social_impact_recent_activities", JSON.stringify(updated));
+      return updated;
+    });
+  };
+
   // Global Printable summary report modal state
   const [showPrintReport, setShowPrintReport] = useState(false);
 
