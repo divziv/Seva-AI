@@ -124,17 +124,63 @@ export default function Dashboard({
   // Global Printable summary report modal state
   const [showPrintReport, setShowPrintReport] = useState(false);
 
-  // Derived filtered events for global search
-  const filteredEvents = events.filter(ev => {
-    if (!globalSearchQuery) return true;
-    const q = globalSearchQuery.toLowerCase();
-    const titleMatch = ev.title?.toLowerCase().includes(q) ?? false;
-    const locationMatch = ev.location?.toLowerCase().includes(q) ?? false;
-    const sdgsMatch = ev.sdgs?.some(sdg => sdg.toLowerCase().includes(q)) ?? false;
-    const descMatch = ev.description?.toLowerCase().includes(q) ?? false;
-    const ngoMatch = ev.ngoName?.toLowerCase().includes(q) ?? false;
-    return titleMatch || locationMatch || sdgsMatch || descMatch || ngoMatch;
-  });
+   // Derived filtered events for global search and cause alignment / registration
+   const filteredEvents = events.filter(ev => {
+     // 1. Global Search Query
+     if (globalSearchQuery) {
+       const q = globalSearchQuery.toLowerCase();
+       const titleMatch = ev.title?.toLowerCase().includes(q) ?? false;
+       const locationMatch = ev.location?.toLowerCase().includes(q) ?? false;
+       const sdgsMatch = ev.sdgs?.some(sdg => sdg.toLowerCase().includes(q)) ?? false;
+       const descMatch = ev.description?.toLowerCase().includes(q) ?? false;
+       const ngoMatch = ev.ngoName?.toLowerCase().includes(q) ?? false;
+       if (!(titleMatch || locationMatch || sdgsMatch || descMatch || ngoMatch)) {
+         return false;
+       }
+     }
+
+     // 2. Toggle filter
+     if (eventFilterToggle === "my") {
+       return ev.volunteersMatched.includes("v1"); // Mock current user as Aarav 'v1'
+     }
+
+     if (eventFilterToggle === "recommended") {
+       const causes = userProfile.preferredCauses || [];
+       if (causes.length === 0) return true; // Show all if no causes selected
+
+       return causes.some(cause => {
+         const c = cause.toLowerCase();
+         // Check match in title, description, NGO name
+         if (ev.title?.toLowerCase().includes(c) || 
+             ev.description?.toLowerCase().includes(c) || 
+             ev.ngoName?.toLowerCase().includes(c)) {
+           return true;
+         }
+         // Check match in SDGs
+         for (const sdg of ev.sdgs || []) {
+           const s = sdg.toLowerCase();
+           if (c === "environment" && (s.includes("climate") || s.includes("life on land") || s.includes("plastic") || s.includes("water") || s.includes("sdg 15") || s.includes("sdg 13") || s.includes("sdg 14") || s.includes("afforestation"))) {
+             return true;
+           }
+           if (c === "health" && (s.includes("health") || s.includes("sanitation") || s.includes("sdg 3") || s.includes("sdg 6"))) {
+             return true;
+           }
+           if (c === "education" && (s.includes("education") || s.includes("literacy") || s.includes("sdg 4") || s.includes("school"))) {
+             return true;
+           }
+           if ((c === "poverty alleviation" || c === "economic empowerment") && (s.includes("poverty") || s.includes("economic") || s.includes("hunger") || s.includes("sdg 1") || s.includes("sdg 2") || s.includes("sdg 8") || s.includes("sdg 10"))) {
+             return true;
+           }
+           if (s.includes(c)) {
+             return true;
+           }
+         }
+         return false;
+       });
+     }
+
+     return true; // "all"
+   });
 
   // Dynamic Recharts 6-month historical growth generator
   const generateTrendData = () => {
@@ -1210,9 +1256,63 @@ export default function Dashboard({
             </button>
           </div>
 
-          {/* TAB: EXPLORE EVENTS */}
-          {volunteerTab === "explore" && (
+          {/* SPLIT GRID WORKSPACE FOR MAIN TABS + PERSISTENT SIDEBAR */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start mt-6">
+            
+            {/* LEFT AREA: ACTIVE SUB-TAB INTERFACES */}
+            <div className="lg:col-span-2 space-y-6">
+
+              {/* TAB: EXPLORE EVENTS */}
+              {volunteerTab === "explore" && (
             <div className="space-y-4">
+              {/* Event Alignment Toggle Controls */}
+              <div className="bg-slate-900 border border-slate-800 p-3.5 rounded-2xl flex flex-wrap items-center justify-between gap-3 shadow-xs">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[10px] text-slate-400 font-mono font-bold uppercase tracking-wider">GRID FILTER:</span>
+                  <div className="bg-slate-950 p-1 rounded-xl border border-slate-850 flex items-center gap-1.5 flex-wrap">
+                    <button
+                      onClick={() => setEventFilterToggle("all")}
+                      className={`px-3 py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
+                        eventFilterToggle === "all"
+                          ? "bg-indigo-600 text-white"
+                          : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
+                      }`}
+                    >
+                      All Grid Events
+                    </button>
+                    <button
+                      onClick={() => setEventFilterToggle("recommended")}
+                      className={`px-3 py-1 text-[11px] font-bold rounded-lg transition-all flex items-center gap-1 cursor-pointer ${
+                        eventFilterToggle === "recommended"
+                          ? "bg-indigo-600 text-white"
+                          : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
+                      }`}
+                      title="Auto-align with causes pinned in your settings profile"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                      Recommended
+                    </button>
+                    <button
+                      onClick={() => setEventFilterToggle("my")}
+                      className={`px-3 py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
+                        eventFilterToggle === "my"
+                          ? "bg-indigo-600 text-white"
+                          : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
+                      }`}
+                    >
+                      My Events
+                    </button>
+                  </div>
+                </div>
+
+                <div className="text-[10px] font-mono text-indigo-300">
+                  {eventFilterToggle === "recommended" ? (
+                    <span>My Pinned Causes: <strong>{userProfile.preferredCauses?.join(", ") || "None configured"}</strong></span>
+                  ) : (
+                    <span>Campaigns loaded: <strong>{filteredEvents.length}</strong></span>
+                  )}
+                </div>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {filteredEvents.length > 0 ? (
                   filteredEvents.map(ev => {
@@ -1250,6 +1350,10 @@ export default function Dashboard({
                                   return e;
                                 });
                                 syncEvents(updated);
+                                logActivity("event", `Withdrew from campaign: "${ev.title}"`);
+                                if (onTriggerNotification) {
+                                  onTriggerNotification(`Withdrew from "${ev.title}"`, "sync");
+                                }
                               } else {
                                 // Apply
                                 const updated = events.map(e => {
@@ -1260,6 +1364,10 @@ export default function Dashboard({
                                 });
                                 syncEvents(updated);
                                 onRewardXP(20);
+                                logActivity("event", `Applied for campaign: "${ev.title}"`, 20);
+                                if (onTriggerNotification) {
+                                  onTriggerNotification(`Applied for "${ev.title}"! +20 XP.`, "xp");
+                                }
                               }
                             }}
                             className={`w-full text-center text-xs font-semibold py-2 rounded-lg transition-all ${
@@ -1515,6 +1623,163 @@ export default function Dashboard({
               )}
             </div>
           )}
+            </div>
+
+            {/* RIGHT AREA: PERSISTENT COMPANION SIDEBAR */}
+            <div className="space-y-6">
+              
+              {/* Volunteer Quick-Start Guide (Active Overlay) */}
+              {showQuickStartGuide && (
+                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl relative overflow-hidden space-y-4 animate-slide-down">
+                  <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-500 via-indigo-500 to-emerald-500"></div>
+                  
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <span className="text-[9px] bg-indigo-950 text-indigo-300 border border-indigo-800 px-2 py-0.5 rounded font-mono font-bold uppercase">
+                        First Steps
+                      </span>
+                      <h4 className="text-xs font-bold text-slate-100 mt-1">Volunteer Quick-Start Guide</h4>
+                    </div>
+                    <button
+                      onClick={() => setShowQuickStartGuide(false)}
+                      className="text-slate-500 hover:text-slate-300 text-xs font-mono font-bold cursor-pointer"
+                      title="Dismiss Guide"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <p className="text-[10.5px] text-slate-400 leading-relaxed">
+                    Welcome to SevaAI! Follow these three simple pillars to build your verified public social impact profile:
+                  </p>
+
+                  <div className="space-y-3 pt-1">
+                    {/* Hour tracking info */}
+                    <div className="flex gap-2.5 items-start font-sans">
+                      <div className="p-1.5 bg-indigo-500/10 rounded-lg text-indigo-400 shrink-0 mt-0.5 border border-indigo-500/10">
+                        <Clock className="w-3.5 h-3.5" />
+                      </div>
+                      <div>
+                        <h5 className="text-[11px] font-bold text-slate-200">1. Track Service Hours</h5>
+                        <p className="text-[10px] text-slate-400 leading-normal">
+                          Apply for matches on the Grid or register calendar days. Completing shifts increments certified volunteer hours.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Badge earning info */}
+                    <div className="flex gap-2.5 items-start font-sans">
+                      <div className="p-1.5 bg-amber-500/10 rounded-lg text-amber-400 shrink-0 mt-0.5 border border-amber-500/10">
+                        <Award className="w-3.5 h-3.5" />
+                      </div>
+                      <div>
+                        <h5 className="text-[11px] font-bold text-slate-200">2. Earn Verified Badges</h5>
+                        <p className="text-[10px] text-slate-400 leading-normal">
+                          Reach volunteer milestones or play the Impact Games (SDG Quizzes) to unlock rare social accolade badges.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Reputation score info */}
+                    <div className="flex gap-2.5 items-start font-sans">
+                      <div className="p-1.5 bg-emerald-500/10 rounded-lg text-emerald-400 shrink-0 mt-0.5 border border-emerald-500/10">
+                        <ShieldCheck className="w-3.5 h-3.5" />
+                      </div>
+                      <div>
+                        <h5 className="text-[11px] font-bold text-slate-200">3. Scale Reputation Score</h5>
+                        <p className="text-[10px] text-slate-400 leading-normal">
+                          Maintain high reliability scores (up to 100%) by completing registered camps, active streaks, and submitting NGO feedback.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      onClick={() => setShowQuickStartGuide(false)}
+                      className="w-full text-center bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[10px] py-1.5 rounded-lg transition-all cursor-pointer"
+                    >
+                      I Understand, Let's Go!
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Public Badge Pinning Showcase */}
+              {userProfile.pinnedBadges && userProfile.pinnedBadges.length > 0 && (
+                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl space-y-3 relative overflow-hidden">
+                  <div className="absolute top-0 left-0 w-1 bg-amber-500 h-full"></div>
+                  <div className="flex justify-between items-center">
+                    <h4 className="text-[10px] font-extrabold text-amber-400 uppercase font-mono flex items-center gap-1">
+                      📌 Pinned Achievements
+                    </h4>
+                    <span className="text-[9px] font-mono text-slate-500 uppercase">Public Showcase</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {userProfile.pinnedBadges.map((badge, i) => (
+                      <div key={i} className="text-center p-2.5 bg-slate-950 border border-slate-850 rounded-xl relative group">
+                        <span className="text-lg block mb-0.5">🏆</span>
+                        <span className="text-[9px] font-bold text-slate-200 block truncate" title={badge}>
+                          {badge}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Recent Activity Feed Widget */}
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
+                <div className="flex justify-between items-center border-b border-slate-800/80 pb-2.5">
+                  <h4 className="text-[10.5px] font-bold text-slate-300 uppercase font-mono tracking-wider">
+                    ⚡ Recent Activity Feed
+                  </h4>
+                  <span className="text-[9px] font-mono text-slate-500 uppercase bg-slate-950 px-2 py-0.5 rounded border border-slate-850">
+                    Live Logs
+                  </span>
+                </div>
+
+                <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+                  {recentActivities.length > 0 ? (
+                    recentActivities.map((act) => {
+                      let iconColor = "text-indigo-400 bg-indigo-500/10 border-indigo-500/10";
+                      if (act.type === "reputation") iconColor = "text-emerald-400 bg-emerald-500/10 border-emerald-500/10";
+                      if (act.type === "badge") iconColor = "text-amber-400 bg-amber-500/10 border-amber-500/10";
+                      if (act.type === "streak") iconColor = "text-rose-400 bg-rose-500/10 border-rose-500/10";
+
+                      return (
+                        <div key={act.id} className="flex gap-2.5 items-start text-xs border-b border-slate-850/40 pb-2.5 last:border-b-0 last:pb-0">
+                          <div className={`p-1.5 rounded-lg shrink-0 mt-0.5 border ${iconColor}`}>
+                            {act.type === "reputation" ? <ShieldCheck className="w-3.5 h-3.5" /> :
+                             act.type === "badge" ? <Award className="w-3.5 h-3.5" /> :
+                             act.type === "streak" ? <Flame className="w-3.5 h-3.5" /> :
+                             <Clock className="w-3.5 h-3.5" />}
+                          </div>
+                          <div className="space-y-0.5 flex-1 min-w-0">
+                            <p className="text-slate-300 leading-snug break-words font-medium">
+                              {act.message}
+                            </p>
+                            <div className="flex items-center gap-1.5 text-[9px] font-mono text-slate-500">
+                              <span>{act.date}</span>
+                              {act.xp && (
+                                <span className="text-indigo-400 font-bold">+{act.xp} XP</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="text-center py-6 text-slate-500 italic text-[10.5px]">
+                      No activities logged yet. Apply to events to seed feed!
+                    </div>
+                  )}
+                </div>
+              </div>
+
+            </div>
+
+          </div>
         </div>
       )}
 

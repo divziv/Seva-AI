@@ -198,8 +198,106 @@ export default function App() {
 
       {/* --- AUTH GATE HEADER / GATEWAY --- */}
       {!currentUser ? (
-        <div className="flex-1 flex items-center justify-center p-4 min-h-[90vh]">
-          <div className="w-full max-w-md bg-white border border-slate-200 rounded-3xl p-8 shadow-xl relative overflow-hidden">
+        <div className="flex-1 max-w-7xl mx-auto w-full px-6 py-12 flex flex-col lg:flex-row gap-12 items-center justify-center min-h-[90vh]">
+          
+          {/* LEFT COLUMN: BRAND SHOWCASE & PLATFORM META */}
+          <div className="flex-1 space-y-6 max-w-2xl text-slate-800 animate-fade-in">
+            <div className="space-y-3">
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-black tracking-widest text-indigo-600 bg-indigo-50 border border-indigo-100 px-3 py-1 rounded-full uppercase font-mono shadow-xs">
+                🇮🇳 SevaAI • Responsible impact
+              </span>
+              <h1 className="text-4xl sm:text-5xl font-black text-slate-900 tracking-tight leading-none">
+                SevaAI <span className="text-indigo-600">.</span> Offline-First AI Platform
+              </h1>
+              <p className="text-sm font-semibold text-slate-600 leading-snug">
+                Connecting Volunteers, NGOs, CSR, and Communities through Responsible AI.
+              </p>
+            </div>
+
+            {/* IMPACT STATISTICS */}
+            <div className="grid grid-cols-3 gap-3 bg-white border border-slate-200 p-4 rounded-2xl shadow-sm">
+              <div className="text-center border-r border-slate-100">
+                <span className="block text-xl sm:text-2xl font-extrabold text-indigo-600">45,000+</span>
+                <span className="text-[10px] text-slate-500 font-mono uppercase font-bold">Hours Tracked</span>
+              </div>
+              <div className="text-center border-r border-slate-100">
+                <span className="block text-xl sm:text-2xl font-extrabold text-emerald-600">120+</span>
+                <span className="text-[10px] text-slate-500 font-mono uppercase font-bold">NGOs Linked</span>
+              </div>
+              <div className="text-center">
+                <span className="block text-xl sm:text-2xl font-extrabold text-amber-500">8.5Cr+</span>
+                <span className="text-[10px] text-slate-500 font-mono uppercase font-bold">CSR Allocated</span>
+              </div>
+            </div>
+
+            {/* FUN FACTS PANEL */}
+            <div className="bg-gradient-to-br from-indigo-50 to-indigo-100/30 border border-indigo-200/50 p-5 rounded-2xl space-y-3 shadow-xs">
+              <h4 className="text-[10.5px] font-bold text-indigo-800 font-mono uppercase tracking-wider flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                SevaAI Platform Insights & Fun Facts
+              </h4>
+              <ul className="text-xs text-indigo-950 space-y-2.5">
+                <li className="flex items-start gap-2">
+                  <span className="text-indigo-600 shrink-0 font-bold mt-0.5">•</span>
+                  <span><strong>AI Matchmaking Alignment</strong>: Our responsible offline AI matching engine improves volunteer task-to-cause alignment by <strong>42%</strong>, ensuring maximum localized impact.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-indigo-600 shrink-0 font-bold mt-0.5">•</span>
+                  <span><strong>Mesh Sync Tech</strong>: Over <strong>80% of sanitation and health reports</strong> are logged fully offline in remote villages before syncing back via local trust anchors.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-indigo-600 shrink-0 font-bold mt-0.5">•</span>
+                  <span><strong>Zero-Waste Carbon Footprint</strong>: Volunteers using SevaAI localized route planning saved an estimated <strong>1,400+ liters of fuel</strong> in Q2 2026.</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* EVENT HIGHLIGHTS */}
+            <div className="space-y-3">
+              <h4 className="text-[11px] font-bold text-slate-500 uppercase font-mono tracking-wider flex items-center gap-1.5">
+                <Activity className="w-3.5 h-3.5 text-rose-500" />
+                📢 Active & Upcoming Platform Campaigns
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="bg-white border border-slate-200 p-3.5 rounded-xl shadow-xs space-y-1">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[9px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded uppercase font-mono">
+                      Upcoming • Planning
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-mono">July 15</span>
+                  </div>
+                  <h5 className="text-xs font-extrabold text-slate-800">Rural Health & Sanitation Camp</h5>
+                  <p className="text-[10.5px] text-slate-500 line-clamp-2 leading-relaxed">
+                    Setting up healthcare clinics and clean water workshops in Gaya District, Bihar.
+                  </p>
+                </div>
+
+                <div className="bg-white border border-slate-200 p-3.5 rounded-xl shadow-xs space-y-1">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[9px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded uppercase font-mono">
+                      Past • Completed
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-mono">May 18</span>
+                  </div>
+                  <h5 className="text-xs font-extrabold text-slate-800">AI & Digital Literacy for Teachers</h5>
+                  <p className="text-[10.5px] text-slate-500 line-clamp-2 leading-relaxed">
+                    Empowered 32+ rural school educators with offline-capable teaching kits and digital learning.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* RECOGNITIONS */}
+            <div className="flex flex-wrap items-center gap-2.5 pt-3 border-t border-slate-200 text-slate-400 text-[10px] font-mono">
+              <span className="font-bold uppercase tracking-wider text-slate-500">🏆 Recognitions:</span>
+              <span className="bg-slate-100 px-2 py-0.5 rounded border border-slate-200/50">Digital India Trust Protocol Certified</span>
+              <span className="bg-slate-100 px-2 py-0.5 rounded border border-slate-200/50">UN SDG-11 Champion</span>
+              <span className="bg-slate-100 px-2 py-0.5 rounded border border-slate-200/50">National AI Excellence Award 2026</span>
+            </div>
+          </div>
+
+          {/* RIGHT COLUMN: ACCESS GATEWAY FORM */}
+          <div className="w-full max-w-md bg-white border border-slate-200 rounded-3xl p-8 shadow-xl relative overflow-hidden shrink-0">
             <div className="absolute top-0 left-0 w-full h-1.5 bg-indigo-600"></div>
             
             <div className="text-center mb-6">
