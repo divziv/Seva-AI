@@ -1,6 +1,6 @@
 {
-  "name": "SevaAI",
-  "description": "Offline-First AI Platform for Volunteers, NGOs & CSR Collaboration. Connecting Volunteers, NGOs, CSR and Communities through Responsible AI.",
-  "requestFramePermissions": [],
+  "name": "SevaSetu",
+  "description": "Made for India. Built in India. Powered by AI. India AI Impact Festival 2026 CSR & NGO Connect • AI-Powered Impact Dashboard.",
+  "requestFramePermissions": ["camera"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

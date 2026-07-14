@@ -12,13 +12,15 @@ import {
 import { 
   Sparkles, ShieldAlert, Award, FileSpreadsheet, Send, Search, BrainCircuit,
   TrendingUp, Users, HeartHandshake, AlertTriangle, MessageSquare, Briefcase, Plus, CheckCircle, Flame, Settings, Info, ShieldCheck, HelpCircle,
-  Printer, FileText, Calendar, Star, Clock, MapPin
+  Printer, FileText, Calendar, Star, Clock, MapPin, Bell, Download, Camera, Trash2, Image, Video
 } from "lucide-react";
 import { 
-  ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend 
+  ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+  BarChart, Bar, LineChart, Line
 } from "recharts";
 import CommunityMilestones from "./CommunityMilestones";
 import ProfileSettings from "./ProfileSettings";
+import { savePhoto, getPhoto } from "../utils/indexedDB";
 
 interface DashboardProps {
   userProfile: UserProfile;
@@ -29,6 +31,35 @@ interface DashboardProps {
   onUpdateProfile: (updated: UserProfile) => void;
   onTriggerNotification?: (msg: string, type: "xp" | "badge" | "sync") => void;
   globalSearchQuery?: string;
+}
+
+export function StoryImage({ photoId, onOpenLightbox }: { photoId: string; onOpenLightbox: (src: string) => void }) {
+  const [src, setSrc] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    getPhoto(photoId).then((base64) => {
+      if (active) {
+        setSrc(base64);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [photoId]);
+
+  if (!src) {
+    return <div className="w-11 h-11 bg-slate-950 border border-slate-800 rounded-lg animate-pulse shrink-0"></div>;
+  }
+
+  return (
+    <img 
+      src={src} 
+      alt="Field Evidence" 
+      className="w-11 h-11 object-cover rounded-lg border border-indigo-500/20 shadow-sm cursor-zoom-in hover:scale-105 transition-all shrink-0"
+      onClick={() => onOpenLightbox(src)}
+    />
+  );
 }
 
 export default function Dashboard({ 
@@ -63,12 +94,15 @@ export default function Dashboard({
   });
 
   // Active sub-navigation tabs based on role
-  const [volunteerTab, setVolunteerTab] = useState<"explore" | "calendar" | "rag">("explore");
+  const [volunteerTab, setVolunteerTab] = useState<"explore" | "calendar" | "rag" | "metrics">("explore");
   const [ngoTab, setNgoTab] = useState<"planner" | "events" | "matching">("planner");
   const [csrTab, setCsrTab] = useState<"analytics" | "emergency" | "budget">("analytics");
 
   // Feedback, Archival & Calendar states
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [showCompareModal, setShowCompareModal] = useState(false);
+  const [compareNgo1, setCompareNgo1] = useState("");
+  const [compareNgo2, setCompareNgo2] = useState("");
   const [feedbackCampaignId, setFeedbackCampaignId] = useState("");
   const [feedbackRating, setFeedbackRating] = useState(5);
   const [feedbackText, setFeedbackText] = useState("");
@@ -123,6 +157,277 @@ export default function Dashboard({
 
   // Global Printable summary report modal state
   const [showPrintReport, setShowPrintReport] = useState(false);
+
+  // --- MONTHLY IMPACT METRICS STATE ---
+  const [monthlyMetrics, setMonthlyMetrics] = useState<any[]>(() => {
+    const saved = localStorage.getItem("social_impact_monthly_metrics");
+    return saved ? JSON.parse(saved) : [
+      { month: "Jan 2026", hours: 12, tasks: 3 },
+      { month: "Feb 2026", hours: 18, tasks: 4 },
+      { month: "Mar 2026", hours: 15, tasks: 3 },
+      { month: "Apr 2026", hours: 22, tasks: 5 },
+      { month: "May 2026", hours: 28, tasks: 6 },
+      { month: "Jun 2026", hours: 35, tasks: 8 }
+    ];
+  });
+
+  const [newMetricMonth, setNewMetricMonth] = useState("Jul 2026");
+  const [newMetricHours, setNewMetricHours] = useState(10);
+  const [newMetricTasks, setNewMetricTasks] = useState(2);
+  const [showMetricForm, setShowMetricForm] = useState(false);
+  const [chartType, setChartType] = useState<"bar" | "line">("bar");
+
+  // --- WORK COMMITMENT REMINDERS STATE ---
+  const [reminders, setReminders] = useState<any[]>(() => {
+    const saved = localStorage.getItem("social_impact_reminders");
+    return saved ? JSON.parse(saved) : [
+      { eventId: "e2", eventTitle: "Rural Health & Sanitation Camp", eventDate: "2026-07-15", daysBefore: 2, notes: "Collect basic first-aid supplies and translation brochures", isEnabled: true }
+    ];
+  });
+
+  const [reminderDaysBefore, setReminderDaysBefore] = useState(2);
+  const [reminderNotes, setReminderNotes] = useState("");
+  const [reminderModalEvent, setReminderModalEvent] = useState<VolunteerEvent | null>(null);
+
+  // Synchronize monthly metrics to localStorage
+  useEffect(() => {
+    localStorage.setItem("social_impact_monthly_metrics", JSON.stringify(monthlyMetrics));
+  }, [monthlyMetrics]);
+
+  // Synchronize reminders to localStorage
+  useEffect(() => {
+    localStorage.setItem("social_impact_reminders", JSON.stringify(reminders));
+  }, [reminders]);
+
+  // --- OFFLINE SYNC LOGS STATE ---
+  const [syncLogs, setSyncLogs] = useState<string[]>(() => {
+    const saved = localStorage.getItem("social_impact_sync_logs");
+    return saved ? JSON.parse(saved) : [
+      "2026-07-13 14:32:01 - Pushed 4 active campaign metrics successfully",
+      "2026-07-12 09:15:44 - Pushed 2 checked-in event logs to server",
+      "2026-07-10 18:22:10 - Complete client database sync & security rules audit"
+    ];
+  });
+
+  useEffect(() => {
+    localStorage.setItem("social_impact_sync_logs", JSON.stringify(syncLogs));
+  }, [syncLogs]);
+
+  // --- NGO SATISFACTION RATINGS STATE ---
+  const [ngoRatings, setNgoRatings] = useState<Record<string, number>>(() => {
+    const saved = localStorage.getItem("social_impact_ngo_ratings");
+    return saved ? JSON.parse(saved) : {
+      "ngo1": 96.4, // Bharat Swasthya Mission
+      "ngo2": 93.8, // Vidyalaya Foundation
+      "ngo3": 91.2, // EcoYodha Green Initiative
+      "ngo4": 98.7  // Sahaya Emergency Relief
+    };
+  });
+
+  useEffect(() => {
+    localStorage.setItem("social_impact_ngo_ratings", JSON.stringify(ngoRatings));
+  }, [ngoRatings]);
+
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const handlePushSync = () => {
+    setIsSyncing(true);
+    setTimeout(() => {
+      setIsSyncing(false);
+      // Simulate retrieving new scores by slightly adjusting them within a high range (85-100)
+      const updatedRatings = {
+        "ngo1": Math.round((93 + Math.random() * 6) * 10) / 10,
+        "ngo2": Math.round((90 + Math.random() * 7) * 10) / 10,
+        "ngo3": Math.round((87 + Math.random() * 9) * 10) / 10,
+        "ngo4": Math.round((95 + Math.random() * 5) * 10) / 10,
+      };
+      setNgoRatings(updatedRatings);
+      
+      const now = new Date();
+      const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+      const logMsg = `${timestamp} - Pushed latest local logs & retrieved new volunteer satisfaction scores`;
+      
+      setSyncLogs(prev => [logMsg, ...prev]);
+      onRewardXP(15); // Reward user for syncing!
+      logActivity("reputation", "Executed offline-first server synchronization. Received +15 XP.", 15);
+      
+      if (onTriggerNotification) {
+        onTriggerNotification("Synchronization complete! Retrieved latest satisfaction scores. +15 XP", "sync");
+      }
+    }, 1200);
+  };
+
+  // --- IMPACT FIELD STORIES STATE ---
+  const [impactStories, setImpactStories] = useState<any[]>(() => {
+    const saved = localStorage.getItem("social_impact_stories");
+    return saved ? JSON.parse(saved) : [
+      {
+        id: "story-1",
+        author: "Aarav Sharma",
+        role: "Crisis Responder",
+        text: "Just completed the primary sanitation setup at Patna outskirts. Seeing the clean water flow and smiles of children was incredibly rewarding!",
+        likes: 14,
+        likedByMe: false,
+        date: "12 Jul 2026",
+        location: "Patna, Bihar"
+      },
+      {
+        id: "story-2",
+        author: "Ananya Patel",
+        role: "Helper",
+        text: "Successfully deployed our custom offline RAG bot in Bengaluru school classrooms. The students are already running questions on solar panel physics!",
+        likes: 8,
+        likedByMe: false,
+        date: "10 Jul 2026",
+        location: "Bengaluru, Karnataka"
+      }
+    ];
+  });
+
+  const [newStoryText, setNewStoryText] = useState("");
+  const [newStoryLocation, setNewStoryLocation] = useState("Mumbai, Maharashtra");
+  const [cameraActive, setCameraActive] = useState(false);
+  const [capturedPhotoId, setCapturedPhotoId] = useState<string | null>(null);
+  const [capturedPhotoBase64, setCapturedPhotoBase64] = useState<string | null>(null);
+  const [videoStream, setVideoStream] = useState<MediaStream | null>(null);
+  const [lightboxPhoto, setLightboxPhoto] = useState<string | null>(null);
+  const videoRef = React.useRef<HTMLVideoElement | null>(null);
+
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+      setVideoStream(stream);
+      setCameraActive(true);
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+      }, 100);
+    } catch (err) {
+      console.error("Camera access denied or failed:", err);
+      alert("Could not access camera. Please check your camera permissions.");
+    }
+  };
+
+  const stopCamera = () => {
+    if (videoStream) {
+      videoStream.getTracks().forEach(track => track.stop());
+      setVideoStream(null);
+    }
+    setCameraActive(false);
+  };
+
+  const takeSnapshot = async () => {
+    if (!videoRef.current) return;
+    const canvas = document.createElement("canvas");
+    canvas.width = 640;
+    canvas.height = 480;
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+      const base64 = canvas.toDataURL("image/jpeg");
+      const photoId = `evidence-${Date.now()}`;
+      
+      await savePhoto(photoId, base64);
+      
+      setCapturedPhotoId(photoId);
+      setCapturedPhotoBase64(base64);
+      stopCamera();
+    }
+  };
+
+  const discardPhoto = () => {
+    setCapturedPhotoId(null);
+    setCapturedPhotoBase64(null);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (videoStream) {
+        videoStream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [videoStream]);
+
+  useEffect(() => {
+    localStorage.setItem("social_impact_stories", JSON.stringify(impactStories));
+  }, [impactStories]);
+
+  const handleLikeStory = (storyId: string) => {
+    setImpactStories(prev => prev.map(story => {
+      if (story.id === storyId) {
+        const alreadyLiked = story.likedByMe;
+        const rewardAmount = alreadyLiked ? -5 : 5; // toggle reward
+        onRewardXP(rewardAmount);
+        
+        if (onTriggerNotification) {
+          onTriggerNotification(alreadyLiked ? "Removed like." : "Liked field story! You earned +5 XP.", "xp");
+        }
+        
+        return {
+          ...story,
+          likes: story.likes + (alreadyLiked ? -1 : 1),
+          likedByMe: !alreadyLiked
+        };
+      }
+      return story;
+    }));
+  };
+
+  const handleSubmitStory = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newStoryText.trim()) return;
+
+    const newStory = {
+      id: `story-${Date.now()}`,
+      author: userProfile.username,
+      role: userProfile.role === "volunteer" ? "Verified Volunteer" : userProfile.role.toUpperCase(),
+      text: newStoryText,
+      likes: 0,
+      likedByMe: false,
+      date: new Date().toLocaleDateString("en-IN", { day: 'numeric', month: 'short', year: 'numeric' }),
+      location: newStoryLocation,
+      photoId: capturedPhotoId || undefined
+    };
+
+    setImpactStories(prev => [newStory, ...prev]);
+    setNewStoryText("");
+    setCapturedPhotoId(null);
+    setCapturedPhotoBase64(null);
+    
+    onRewardXP(15);
+    logActivity("reputation", `Submitted a new field impact story for ${newStoryLocation}.`, 15);
+    if (onTriggerNotification) {
+      onTriggerNotification("Impact story submitted! Received +15 XP.", "xp");
+    }
+  };
+
+  // Notify of upcoming deadlines based on reminders
+  useEffect(() => {
+    // Current date is 2026-06-28
+    const currentDateStr = "2026-06-28";
+    
+    // We add a tiny delay to allow page rendering before showing notifications
+    const timer = setTimeout(() => {
+      reminders.forEach(r => {
+        if (!r.isEnabled) return;
+        
+        // Calculate target reminder date
+        const eventDate = new Date(r.eventDate);
+        eventDate.setDate(eventDate.getDate() - r.daysBefore);
+        const reminderDateStr = eventDate.toISOString().split('T')[0];
+
+        // Trigger notification if today is the day or later
+        if (reminderDateStr <= currentDateStr) {
+          if (onTriggerNotification) {
+            onTriggerNotification(`🔔 REMINDER: "${r.eventTitle}" is coming up! (${r.eventDate}). Notes: ${r.notes || "None"}`, "sync");
+          }
+        }
+      });
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, [reminders]);
 
    // Derived filtered events for global search and cause alignment / registration
    const filteredEvents = events.filter(ev => {
@@ -574,6 +879,79 @@ export default function Dashboard({
     }
   };
 
+  // Export to beautifully formatted plain text report
+  const handleExportTXT = () => {
+    let textContent = "";
+    textContent += "==================================================\n";
+    textContent += "        SEVAAI SOCIAL IMPACT PORTFOLIO REPORT     \n";
+    textContent += "==================================================\n\n";
+    textContent += `Generated on      : ${new Date().toLocaleString("en-IN")}\n`;
+    textContent += `User Profile      : ${userProfile.username}\n`;
+    textContent += `Current Role      : ${userProfile.role.toUpperCase()}\n`;
+    textContent += `Impact Level      : Level ${userProfile.level}\n`;
+    textContent += `Experience Points : ${userProfile.xp} XP\n`;
+    textContent += `Reputation Index  : ${userProfile.reputationScore}/100\n`;
+    textContent += `Active Streak     : ${userProfile.streak} days\n`;
+    textContent += `Earned Badges     : ${userProfile.badges.join(", ")}\n\n`;
+    
+    textContent += "--------------------------------------------------\n";
+    textContent += "            REGISTERED CAMPAIGNS & TASKS          \n";
+    textContent += "--------------------------------------------------\n";
+    const registered = events.filter(e => e.volunteersMatched.includes("v1"));
+    if (registered.length > 0) {
+      registered.forEach((e, idx) => {
+        textContent += `${idx + 1}. [${e.status}] ${e.title}\n`;
+        textContent += `   Organized by : ${e.ngoName}\n`;
+        textContent += `   Location     : ${e.location}\n`;
+        textContent += `   Target SDGs  : ${e.sdgs.join(", ")}\n\n`;
+      });
+    } else {
+      textContent += "No registered campaigns found.\n\n";
+    }
+
+    textContent += "--------------------------------------------------\n";
+    textContent += "             QUALITATIVE FEEDBACK SUBMITTED       \n";
+    textContent += "--------------------------------------------------\n";
+    if (feedbackHistory.length > 0) {
+      feedbackHistory.forEach((f, idx) => {
+        textContent += `${idx + 1}. Campaign: ${f.campaignTitle}\n`;
+        textContent += `   Rating   : ${f.rating}/5 stars\n`;
+        textContent += `   Comment  : "${f.comment}"\n`;
+        textContent += `   Date     : ${f.date}\n\n`;
+      });
+    } else {
+      textContent += "No qualitative feedback submitted yet.\n\n";
+    }
+
+    textContent += "--------------------------------------------------\n";
+    textContent += "          MONTHLY IMPACT CONTRIBUTIONS (LOG)      \n";
+    textContent += "--------------------------------------------------\n";
+    if (monthlyMetrics.length > 0) {
+      monthlyMetrics.forEach((m, idx) => {
+        textContent += `- Month: ${m.month} | Hours Contributed: ${m.hours} hrs | Tasks Completed: ${m.tasks}\n`;
+      });
+    } else {
+      textContent += "No monthly impact metrics logged.\n";
+    }
+    textContent += "\n";
+
+    textContent += "==================================================\n";
+    textContent += "       END OF OFFLINE SOCIAL IMPACT ARCHIVE       \n";
+    textContent += "==================================================\n";
+
+    const dataStr = "data:text/plain;charset=utf-8," + encodeURIComponent(textContent);
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute("href", dataStr);
+    downloadAnchor.setAttribute("download", `social_impact_report_${userProfile.username.toLowerCase().replace(/\s+/g, '_')}.txt`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+
+    if (onTriggerNotification) {
+      onTriggerNotification("Exported activity history TXT report successfully!", "sync");
+    }
+  };
+
   // Archival to Local Browser Storage
   const handleArchiveLocalStorage = () => {
     const archiveKey = `social_impact_archive_${Date.now()}`;
@@ -798,18 +1176,27 @@ export default function Dashboard({
                 <span className="text-[9px] font-mono font-bold text-slate-400 block uppercase tracking-wider">
                   Available File Exports
                 </span>
-                <div className="flex gap-2.5">
+                <div className="grid grid-cols-3 gap-2">
                   <button
                     onClick={handleExportJSON}
-                    className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-sans text-xs font-bold py-2.5 px-3 rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-sm"
+                    className="bg-indigo-600 hover:bg-indigo-500 text-white font-sans text-[10px] font-bold py-2.5 px-2 rounded-xl flex items-center justify-center gap-1 transition-colors cursor-pointer shadow-sm text-center"
+                    title="Export as JSON"
                   >
-                    <span>Download JSON Archive</span>
+                    <span>Download JSON</span>
                   </button>
                   <button
                     onClick={handleExportCSV}
-                    className="flex-1 bg-indigo-950 hover:bg-indigo-900 text-indigo-300 border border-indigo-800/60 font-sans text-xs font-bold py-2.5 px-3 rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-sm"
+                    className="bg-indigo-950 hover:bg-indigo-900 text-indigo-300 border border-indigo-800/60 font-sans text-[10px] font-bold py-2.5 px-2 rounded-xl flex items-center justify-center gap-1 transition-colors cursor-pointer shadow-sm text-center"
+                    title="Export as CSV"
                   >
-                    <span>Download CSV Log</span>
+                    <span>Download CSV</span>
+                  </button>
+                  <button
+                    onClick={handleExportTXT}
+                    className="bg-slate-850 hover:bg-slate-800 text-slate-300 border border-slate-700/60 font-sans text-[10px] font-bold py-2.5 px-2 rounded-xl flex items-center justify-center gap-1 transition-colors cursor-pointer shadow-sm text-center"
+                    title="Export as Plain Text (.txt)"
+                  >
+                    <span>Download TXT</span>
                   </button>
                 </div>
 
@@ -865,6 +1252,310 @@ export default function Dashboard({
             </div>
           </div>
         </div>
+      </div>
+
+      {/* THIRD BENTO ROW: NGO HIGHLIGHTS, OFFLINE SYNC LOGS & FIELD STORIES */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in no-print" id="dashboard-third-bento-row">
+        
+        {/* Widget 1: Top-Performing NGO Partners */}
+        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-xl relative overflow-hidden flex flex-col justify-between">
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-teal-500 to-indigo-500"></div>
+          <div>
+            <div className="flex justify-between items-center mb-3">
+              <h4 className="text-sm font-bold text-slate-100 flex items-center gap-1.5 font-sans">
+                <HeartHandshake className="w-4 h-4 text-teal-400" />
+                NGO Partner Satisfaction Highlights
+              </h4>
+              <span className="text-[9px] bg-indigo-950 text-indigo-300 border border-indigo-800 px-1.5 py-0.5 rounded font-mono font-bold uppercase">
+                Vetted Core
+              </span>
+            </div>
+            <p className="text-[10px] text-slate-400 mb-3 leading-relaxed font-sans">
+              Automatically highlighting top-performing partner NGOs based on volunteer satisfaction scores retrieved during the last sync.
+            </p>
+
+            <button
+              onClick={() => {
+                setCompareNgo1(initialNGOs[0]?.id || "");
+                setCompareNgo2(initialNGOs[1]?.id || "");
+                setShowCompareModal(true);
+              }}
+              className="w-full bg-slate-950 hover:bg-slate-850 text-teal-400 hover:text-teal-300 border border-slate-850 hover:border-slate-800 py-2 px-3 rounded-xl text-[10px] font-bold flex items-center justify-center gap-1.5 transition-all mb-3.5 cursor-pointer font-mono"
+            >
+              <TrendingUp className="w-3.5 h-3.5 text-teal-400" />
+              <span>COMPARE TWO NGOs SIDE-BY-SIDE</span>
+            </button>
+
+            <div className="space-y-3">
+              {initialNGOs.map(ngo => {
+                const rating = ngoRatings[ngo.id] || ngo.trustRating;
+                return { ...ngo, satisfaction: rating };
+              })
+              .sort((a, b) => b.satisfaction - a.satisfaction)
+              .map((ngo) => (
+                <div key={ngo.id} className="bg-slate-950 border border-slate-850 p-3 rounded-xl flex flex-col justify-between text-xs gap-2">
+                  <div className="flex justify-between items-start gap-2">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1">
+                        <span className="font-extrabold text-slate-200 truncate block">{ngo.name}</span>
+                        {ngo.verified && (
+                          <span className="text-[8px] bg-teal-950 text-teal-400 border border-teal-900 px-1 rounded font-mono font-bold uppercase shrink-0">
+                            ✓ OK
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[9px] text-slate-500 font-mono block mt-0.5">Focus: {ngo.focus.join(", ")}</span>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <span className="font-mono font-extrabold text-teal-400">{ngo.satisfaction}%</span>
+                      <span className="text-[8px] text-slate-500 block">Satisfaction</span>
+                    </div>
+                  </div>
+
+                  {/* Rating progress bar */}
+                  <div className="w-full bg-slate-900 h-1.5 rounded-full overflow-hidden border border-slate-800/60">
+                    <div 
+                      className={`h-full rounded-full transition-all duration-500 ${
+                        ngo.satisfaction >= 95 ? "bg-gradient-to-r from-emerald-500 to-teal-400" :
+                        ngo.satisfaction >= 90 ? "bg-gradient-to-r from-teal-500 to-indigo-500" : "bg-indigo-500"
+                      }`}
+                      style={{ width: `${ngo.satisfaction}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="text-[8.5px] text-slate-500 mt-4 text-left italic">
+            *Satisfaction metrics are updated automatically upon successful server check-in synchronization.
+          </div>
+        </div>
+
+        {/* Widget 2: Sync Log Panel */}
+        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-xl relative overflow-hidden flex flex-col justify-between">
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 to-indigo-600"></div>
+          <div>
+            <div className="flex justify-between items-center mb-3">
+              <h4 className="text-sm font-bold text-slate-100 flex items-center gap-1.5 font-sans">
+                <CheckCircle className="w-4 h-4 text-indigo-400" />
+                Central Server Sync Log
+              </h4>
+              <span className="text-[9px] bg-emerald-950 text-emerald-300 border border-emerald-800 px-1.5 py-0.5 rounded font-mono font-bold uppercase animate-pulse">
+                Active Standby
+              </span>
+            </div>
+            <p className="text-[10px] text-slate-400 mb-4 leading-relaxed font-sans">
+              Verify when your local ledger entries were pushed to the central server. Trigger a synchronization push to refresh NGO scores.
+            </p>
+
+            <div className="space-y-3">
+              {/* Sync Trigger Button */}
+              <button
+                onClick={handlePushSync}
+                disabled={isSyncing}
+                className={`w-full text-white font-sans text-xs font-bold py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer ${
+                  isSyncing 
+                    ? "bg-slate-800 border border-slate-700 text-slate-400 cursor-not-allowed" 
+                    : "bg-indigo-600 hover:bg-indigo-500 text-white"
+                }`}
+              >
+                {isSyncing ? (
+                  <>
+                    <span className="w-3.5 h-3.5 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin"></span>
+                    <span>Synchronizing Ledger Database...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Sync Local Data Now (+15 XP)</span>
+                  </>
+                )}
+              </button>
+
+              <div className="border-t border-slate-850/40 my-3"></div>
+
+              <span className="text-[9px] font-mono font-bold text-slate-400 block uppercase tracking-wider mb-2">
+                Sync History Audit Trails
+              </span>
+
+              <div className="space-y-1.5 max-h-[170px] overflow-y-auto font-mono text-[9px] pr-1">
+                {syncLogs.map((log, index) => (
+                  <div key={index} className="p-2 bg-slate-950 border border-slate-850 rounded-lg space-y-1">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[8px] bg-emerald-950 text-emerald-400 px-1 rounded font-bold">SUCCESSFUL</span>
+                      <span className="text-[8px] text-slate-500 font-bold">Ledger synced</span>
+                    </div>
+                    <p className="text-slate-300 leading-normal">{log}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="text-[8.5px] text-slate-500 mt-4 text-right">
+            Offline encryption stamp is verified by the central SDG consensus engine.
+          </div>
+        </div>
+
+        {/* Widget 3: Impact Stories Section */}
+        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-xl relative overflow-hidden flex flex-col justify-between">
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 to-teal-500"></div>
+          <div>
+            <div className="flex justify-between items-center mb-3">
+              <h4 className="text-sm font-bold text-slate-100 flex items-center gap-1.5 font-sans">
+                <MessageSquare className="w-4 h-4 text-indigo-400" />
+                Field Impact Stories
+              </h4>
+              <span className="text-[9px] bg-amber-950 text-amber-300 border border-amber-800 px-1.5 py-0.5 rounded font-mono font-bold uppercase">
+                Active Field
+              </span>
+            </div>
+            <p className="text-[10px] text-slate-400 mb-4 leading-relaxed font-sans">
+              Share your on-the-ground volunteer updates or support other field teams. Liking field stories rewards you with XP!
+            </p>
+
+            {/* Submit Story Form */}
+            <form onSubmit={handleSubmitStory} className="space-y-2.5 bg-slate-950 p-3 rounded-2xl border border-slate-850/80 mb-3">
+              <textarea
+                value={newStoryText}
+                onChange={(e) => setNewStoryText(e.target.value)}
+                placeholder="What impact did you make today? (e.g. 'Provided first-aid to 20 children...')"
+                className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 font-sans resize-none h-14"
+                maxLength={200}
+              />
+
+              {/* Camera Active Preview Canvas */}
+              {cameraActive && (
+                <div className="relative rounded-xl overflow-hidden border border-indigo-500 bg-black aspect-video flex flex-col justify-end">
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    className="absolute inset-0 w-full h-full object-cover"
+                  />
+                  <div className="absolute bottom-2 left-0 w-full flex justify-center gap-2 px-3 z-10 no-print">
+                    <button
+                      type="button"
+                      onClick={takeSnapshot}
+                      className="bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg flex items-center gap-1 cursor-pointer transition-colors"
+                    >
+                      <Camera className="w-3.5 h-3.5" />
+                      <span>Take Snapshot</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={stopCamera}
+                      className="bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-bold px-3 py-1.5 rounded-lg flex items-center gap-1 cursor-pointer transition-colors"
+                    >
+                      <span>Cancel</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Snapshot Captured Thumbnail Preview */}
+              {capturedPhotoBase64 && (
+                <div className="flex items-center gap-2.5 bg-slate-900/60 p-2 rounded-xl border border-slate-800/80">
+                  <img
+                    src={capturedPhotoBase64}
+                    alt="Captured Evidence Preview"
+                    className="w-11 h-11 object-cover rounded-lg border border-indigo-500/30"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <span className="text-[9px] text-emerald-400 font-bold block uppercase tracking-wider font-mono">✓ Evidence Captured</span>
+                    <span className="text-[8px] text-slate-500 block truncate font-mono">Will be stored securely in IndexedDB</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={discardPhoto}
+                    className="text-rose-400 hover:text-rose-300 p-1 bg-slate-950 border border-slate-850 rounded-lg hover:border-slate-800 transition-colors cursor-pointer"
+                    title="Discard Photo"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+
+              <div className="flex justify-between items-center gap-2 flex-wrap">
+                {!cameraActive && !capturedPhotoBase64 && (
+                  <button
+                    type="button"
+                    onClick={startCamera}
+                    className="bg-slate-900 hover:bg-slate-850 text-indigo-400 hover:text-indigo-300 border border-slate-800 hover:border-slate-700 rounded-lg text-[10px] px-2.5 py-1.5 font-bold flex items-center gap-1 transition-all cursor-pointer font-sans"
+                  >
+                    <Camera className="w-3.5 h-3.5" />
+                    <span>Capture Field Evidence</span>
+                  </button>
+                )}
+                <select
+                  value={newStoryLocation}
+                  onChange={(e) => setNewStoryLocation(e.target.value)}
+                  className="bg-slate-900 border border-slate-800 rounded-lg text-[10px] text-slate-300 px-2.5 py-1 focus:outline-none focus:border-indigo-600 font-mono"
+                >
+                  <option value="Mumbai, Maharashtra">Mumbai, Maharashtra</option>
+                  <option value="Bengaluru, Karnataka">Bengaluru, Karnataka</option>
+                  <option value="Patna, Bihar">Patna, Bihar</option>
+                  <option value="Kolkata, West Bengal">Kolkata, West Bengal</option>
+                  <option value="Delhi NCR">Delhi NCR</option>
+                  <option value="Wayanad, Kerala">Wayanad, Kerala</option>
+                  <option value="Anantapur, Andhra Pradesh">Anantapur, Andhra Pradesh</option>
+                  <option value="Pune, Maharashtra">Pune, Maharashtra</option>
+                </select>
+                <button
+                  type="submit"
+                  disabled={!newStoryText.trim()}
+                  className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:hover:bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-[10px] font-extrabold cursor-pointer transition-all font-sans ml-auto"
+                >
+                  Share Story (+15 XP)
+                </button>
+              </div>
+            </form>
+
+            {/* Stories List */}
+            <div className="space-y-2 max-h-[160px] overflow-y-auto pr-1">
+              {impactStories.map((story) => (
+                <div key={story.id} className="bg-slate-950 border border-slate-850 p-2.5 rounded-xl text-xs space-y-1.5">
+                  <div className="flex justify-between items-start gap-2">
+                    <div>
+                      <span className="font-bold text-slate-200 block">{story.author}</span>
+                      <span className="text-[9px] text-slate-500 font-mono">{story.role}</span>
+                    </div>
+                    <span className="text-[8px] bg-slate-900 border border-slate-800 text-slate-400 px-1 rounded font-mono shrink-0">
+                      {story.location}
+                    </span>
+                  </div>
+                  
+                  <div className="flex gap-2.5 items-start">
+                    <div className="flex-1">
+                      <p className="text-slate-300 italic leading-relaxed text-[11px]">"{story.text}"</p>
+                    </div>
+                    {story.photoId && (
+                      <StoryImage photoId={story.photoId} onOpenLightbox={(src) => setLightboxPhoto(src)} />
+                    )}
+                  </div>
+
+                  <div className="flex justify-between items-center pt-1 text-[10px]">
+                    <span className="text-[9px] text-slate-500 font-mono">{story.date}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleLikeStory(story.id)}
+                      className={`flex items-center gap-1 px-2.5 py-1 rounded-lg border text-[9px] transition-all cursor-pointer font-bold font-mono ${
+                        story.likedByMe 
+                          ? "bg-amber-950/40 text-amber-400 border-amber-800" 
+                          : "bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200"
+                      }`}
+                    >
+                      <Star className={`w-3 h-3 ${story.likedByMe ? "fill-amber-400 text-amber-400" : ""}`} />
+                      <span>{story.likes} Likes</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="text-[8.5px] text-slate-500 mt-4 text-left">
+            *Liking reports encourages real-time community engagement.
+          </div>
+        </div>
+
       </div>
 
       {/* 3. PRINTABLE SUMMARY REPORT MODAL */}
@@ -1254,6 +1945,15 @@ export default function Dashboard({
               AI Smart RAG FAQ Helper
               {volunteerTab === "rag" && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-500"></div>}
             </button>
+            <button
+              onClick={() => setVolunteerTab("metrics")}
+              className={`pb-2.5 text-xs font-semibold relative transition-all ${
+                volunteerTab === "metrics" ? "text-indigo-400" : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              📊 Monthly Impact Tracker
+              {volunteerTab === "metrics" && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-500"></div>}
+            </button>
           </div>
 
           {/* SPLIT GRID WORKSPACE FOR MAIN TABS + PERSISTENT SIDEBAR */}
@@ -1339,22 +2039,54 @@ export default function Dashboard({
                         </div>
 
                         {ev.status !== "COMPLETED" && (
-                          <button
-                            onClick={() => {
-                              if (applied) {
-                                // Unapply
-                                const updated = events.map(e => {
-                                  if (e.id === ev.id) {
-                                    return { ...e, volunteersMatched: e.volunteersMatched.filter(v => v !== "v1") };
+                          applied ? (
+                            <div className="flex gap-2 w-full">
+                              <button
+                                onClick={() => {
+                                  // Unapply
+                                  const updated = events.map(e => {
+                                    if (e.id === ev.id) {
+                                      return { ...e, volunteersMatched: e.volunteersMatched.filter(v => v !== "v1") };
+                                    }
+                                    return e;
+                                  });
+                                  syncEvents(updated);
+                                  // Also remove reminder
+                                  setReminders(prev => prev.filter(r => r.eventId !== ev.id));
+                                  logActivity("event", `Withdrew from campaign: "${ev.title}"`);
+                                  if (onTriggerNotification) {
+                                    onTriggerNotification(`Withdrew from "${ev.title}"`, "sync");
                                   }
-                                  return e;
-                                });
-                                syncEvents(updated);
-                                logActivity("event", `Withdrew from campaign: "${ev.title}"`);
-                                if (onTriggerNotification) {
-                                  onTriggerNotification(`Withdrew from "${ev.title}"`, "sync");
-                                }
-                              } else {
+                                }}
+                                className="flex-1 text-center text-xs font-semibold py-2 rounded-lg bg-emerald-950 text-emerald-300 border border-emerald-800 hover:bg-emerald-900 transition-all cursor-pointer"
+                              >
+                                Applied (Matched)
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setReminderModalEvent(ev);
+                                  const existing = reminders.find(r => r.eventId === ev.id);
+                                  if (existing) {
+                                    setReminderDaysBefore(existing.daysBefore);
+                                    setReminderNotes(existing.notes || "");
+                                  } else {
+                                    setReminderDaysBefore(2);
+                                    setReminderNotes("");
+                                  }
+                                }}
+                                className={`p-2 rounded-lg border transition-all flex items-center justify-center cursor-pointer shrink-0 ${
+                                  reminders.some(r => r.eventId === ev.id && r.isEnabled)
+                                    ? "bg-amber-950/40 text-amber-400 border-amber-700/50"
+                                    : "bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200"
+                                }`}
+                                title={reminders.some(r => r.eventId === ev.id && r.isEnabled) ? "Edit Commitment Reminder" : "Set Commitment Reminder"}
+                              >
+                                <Bell className={`w-4 h-4 ${reminders.some(r => r.eventId === ev.id && r.isEnabled) ? "animate-pulse text-amber-400" : "text-slate-400"}`} />
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => {
                                 // Apply
                                 const updated = events.map(e => {
                                   if (e.id === ev.id) {
@@ -1368,16 +2100,12 @@ export default function Dashboard({
                                 if (onTriggerNotification) {
                                   onTriggerNotification(`Applied for "${ev.title}"! +20 XP.`, "xp");
                                 }
-                              }
-                            }}
-                            className={`w-full text-center text-xs font-semibold py-2 rounded-lg transition-all ${
-                              applied 
-                                ? "bg-emerald-950 text-emerald-300 border border-emerald-800" 
-                                : "bg-indigo-600 hover:bg-indigo-500 text-white"
-                            }`}
-                          >
-                            {applied ? "Applied (Matched on National Grid)" : "Apply Instantly & Run Bias Check"}
-                          </button>
+                              }}
+                              className="w-full text-center text-xs font-semibold py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition-all cursor-pointer"
+                            >
+                              Apply Instantly & Run Bias Check
+                            </button>
+                          )
                         )}
                       </div>
                     );
@@ -1621,6 +2349,330 @@ export default function Dashboard({
                   Try asking: <span className="text-indigo-400 font-mono font-bold italic cursor-pointer" onClick={() => { setRagQuery("How does volunteer matching algorithm eliminate bias?"); }}>"How does volunteer matching algorithm eliminate bias?"</span>
                 </div>
               )}
+            </div>
+          )}
+
+          {volunteerTab === "metrics" && (
+            <div className="space-y-6">
+              
+              {/* Chart & Core Impact Analytics */}
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-500"></div>
+                
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-5">
+                  <div>
+                    <span className="text-[9px] bg-indigo-950 text-indigo-300 border border-indigo-800 px-2 py-0.5 rounded font-mono font-bold uppercase">
+                      Social Impact Ledger
+                    </span>
+                    <h4 className="text-sm font-bold text-slate-100 mt-1 flex items-center gap-2">
+                      <span>Monthly Volunteer Impact Analytics</span>
+                    </h4>
+                  </div>
+                  
+                  {/* Chart Type Toggles */}
+                  <div className="flex items-center gap-1.5 bg-slate-950 p-1 border border-slate-800 rounded-xl">
+                    <button
+                      onClick={() => setChartType("bar")}
+                      className={`px-3 py-1 text-[10px] font-bold rounded-lg cursor-pointer transition-all ${
+                        chartType === "bar" ? "bg-indigo-600 text-white shadow-sm" : "text-slate-400 hover:text-slate-200"
+                      }`}
+                    >
+                      Bar Chart
+                    </button>
+                    <button
+                      onClick={() => setChartType("line")}
+                      className={`px-3 py-1 text-[10px] font-bold rounded-lg cursor-pointer transition-all ${
+                        chartType === "line" ? "bg-indigo-600 text-white shadow-sm" : "text-slate-400 hover:text-slate-200"
+                      }`}
+                    >
+                      Line Chart
+                    </button>
+                  </div>
+                </div>
+
+                {/* Recharts Component Container */}
+                <div className="bg-slate-950 p-4 rounded-xl border border-slate-850 h-[300px] flex items-center justify-center relative">
+                  {monthlyMetrics.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      {chartType === "bar" ? (
+                        <BarChart data={monthlyMetrics} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" opacity={0.4} />
+                          <XAxis dataKey="month" stroke="#64748b" fontSize={9} />
+                          <YAxis yAxisId="left" stroke="#818cf8" fontSize={9} />
+                          <YAxis yAxisId="right" orientation="right" stroke="#34d399" fontSize={9} />
+                          <Tooltip contentStyle={{ backgroundColor: '#0b0f19', borderColor: '#1e293b', borderRadius: '12px', fontSize: '11px', color: '#e2e8f0' }} />
+                          <Legend wrapperStyle={{ fontSize: '10px', paddingTop: '10px' }} />
+                          <Bar yAxisId="left" dataKey="hours" name="Hours Contributed" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                          <Bar yAxisId="right" dataKey="tasks" name="Tasks Completed" fill="#10b981" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      ) : (
+                        <LineChart data={monthlyMetrics} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" opacity={0.4} />
+                          <XAxis dataKey="month" stroke="#64748b" fontSize={9} />
+                          <YAxis yAxisId="left" stroke="#818cf8" fontSize={9} />
+                          <YAxis yAxisId="right" orientation="right" stroke="#34d399" fontSize={9} />
+                          <Tooltip contentStyle={{ backgroundColor: '#0b0f19', borderColor: '#1e293b', borderRadius: '12px', fontSize: '11px', color: '#e2e8f0' }} />
+                          <Legend wrapperStyle={{ fontSize: '10px', paddingTop: '10px' }} />
+                          <Line yAxisId="left" type="monotone" dataKey="hours" name="Hours Contributed" stroke="#6366f1" strokeWidth={3} activeDot={{ r: 4 }} />
+                          <Line yAxisId="right" type="monotone" dataKey="tasks" name="Tasks Completed" stroke="#10b981" strokeWidth={3} activeDot={{ r: 4 }} />
+                        </LineChart>
+                      )}
+                    </ResponsiveContainer>
+                  ) : (
+                    <p className="text-xs text-slate-500 font-mono">No impact metrics logged yet.</p>
+                  )}
+                </div>
+
+                {/* Derived Summary Statistics */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
+                  <div className="bg-slate-950 p-3 rounded-xl border border-slate-850/80">
+                    <span className="text-[9px] text-slate-500 font-mono uppercase font-bold block">Total Hours Logged</span>
+                    <span className="text-lg font-black text-indigo-400 font-mono">
+                      {monthlyMetrics.reduce((sum, m) => sum + Number(m.hours || 0), 0)} hrs
+                    </span>
+                  </div>
+                  <div className="bg-slate-950 p-3 rounded-xl border border-slate-850/80">
+                    <span className="text-[9px] text-slate-500 font-mono uppercase font-bold block">Tasks Completed</span>
+                    <span className="text-lg font-black text-emerald-400 font-mono">
+                      {monthlyMetrics.reduce((sum, m) => sum + Number(m.tasks || 0), 0)} tasks
+                    </span>
+                  </div>
+                  <div className="bg-slate-950 p-3 rounded-xl border border-slate-850/80">
+                    <span className="text-[9px] text-slate-500 font-mono uppercase font-bold block">Average Efficiency</span>
+                    <span className="text-lg font-black text-amber-400 font-mono">
+                      {(monthlyMetrics.reduce((sum, m) => sum + Number(m.hours || 0), 0) / (monthlyMetrics.reduce((sum, m) => sum + Number(m.tasks || 0), 0) || 1)).toFixed(1)} hrs/task
+                    </span>
+                  </div>
+                  <div className="bg-slate-950 p-3 rounded-xl border border-slate-850/80">
+                    <span className="text-[9px] text-slate-500 font-mono uppercase font-bold block">Peak Monthly Contrib</span>
+                    <span className="text-lg font-black text-purple-400 font-mono">
+                      {monthlyMetrics.length > 0 ? Math.max(...monthlyMetrics.map(m => Number(m.hours || 0))) : 0} hrs
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Log Custom Impact Metrics Form */}
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
+                <div className="flex justify-between items-center mb-4">
+                  <h4 className="text-xs font-bold text-slate-100 uppercase tracking-wider font-mono flex items-center gap-2">
+                    <Plus className="w-4 h-4 text-emerald-400" />
+                    <span>Log & Update Monthly Metrics</span>
+                  </h4>
+                  <button
+                    onClick={() => setShowMetricForm(!showMetricForm)}
+                    className="text-[10px] text-indigo-400 hover:text-indigo-300 font-mono font-bold uppercase tracking-wider underline cursor-pointer"
+                  >
+                    {showMetricForm ? "Collapse Form" : "Expand Logger Form"}
+                  </button>
+                </div>
+
+                {showMetricForm && (
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      if (!newMetricMonth.trim()) return;
+
+                      // Check if already exists, then update; else append
+                      const existingIndex = monthlyMetrics.findIndex(
+                        m => m.month.toLowerCase() === newMetricMonth.toLowerCase()
+                      );
+
+                      let updated = [...monthlyMetrics];
+                      const logPayload = {
+                        month: newMetricMonth,
+                        hours: Number(newMetricHours),
+                        tasks: Number(newMetricTasks)
+                      };
+
+                      if (existingIndex > -1) {
+                        updated[existingIndex] = logPayload;
+                      } else {
+                        updated.push(logPayload);
+                      }
+
+                      setMonthlyMetrics(updated);
+                      onRewardXP(15);
+                      logActivity("reputation", `Logged/Updated monthly impact for ${newMetricMonth}: ${newMetricHours} hrs, ${newMetricTasks} tasks.`);
+                      if (onTriggerNotification) {
+                        onTriggerNotification(`Successfully recorded metrics for ${newMetricMonth}! +15 XP rewarded.`, "xp");
+                      }
+                    }}
+                    className="space-y-4 bg-slate-950 p-4 rounded-xl border border-slate-850/80 animate-slide-down"
+                  >
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      {/* Month selector */}
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block">Target Month</label>
+                        <select
+                          value={newMetricMonth}
+                          onChange={(e) => setNewMetricMonth(e.target.value)}
+                          className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                        >
+                          <option value="Jan 2026">Jan 2026</option>
+                          <option value="Feb 2026">Feb 2026</option>
+                          <option value="Mar 2026">Mar 2026</option>
+                          <option value="Apr 2026">Apr 2026</option>
+                          <option value="May 2026">May 2026</option>
+                          <option value="Jun 2026">Jun 2026</option>
+                          <option value="Jul 2026">Jul 2026</option>
+                          <option value="Aug 2026">Aug 2026</option>
+                          <option value="Sep 2026">Sep 2026</option>
+                          <option value="Oct 2026">Oct 2026</option>
+                          <option value="Nov 2026">Nov 2026</option>
+                          <option value="Dec 2026">Dec 2026</option>
+                        </select>
+                      </div>
+
+                      {/* Hours input */}
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block">Hours Contributed</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="200"
+                          value={newMetricHours}
+                          onChange={(e) => setNewMetricHours(Math.max(0, parseInt(e.target.value) || 0))}
+                          className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                        />
+                      </div>
+
+                      {/* Tasks input */}
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block">Tasks Completed</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="50"
+                          value={newMetricTasks}
+                          onChange={(e) => setNewMetricTasks(Math.max(0, parseInt(e.target.value) || 0))}
+                          className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-sans text-xs font-bold py-2 rounded-lg transition-colors cursor-pointer text-center"
+                    >
+                      Save Impact Metrics & Receive +15 XP
+                    </button>
+                  </form>
+                )}
+              </div>
+
+              {/* Active Deadline Reminders Management */}
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
+                <div className="flex justify-between items-center mb-3">
+                  <h4 className="text-xs font-bold text-slate-100 uppercase tracking-wider font-mono flex items-center gap-2">
+                    <Bell className="w-4 h-4 text-amber-400" />
+                    <span>Registered commitment deadline reminders</span>
+                  </h4>
+                  <span className="text-[9px] bg-amber-950 text-amber-300 border border-amber-800 px-1.5 py-0.5 rounded font-mono font-bold uppercase">
+                    {reminders.filter(r => r.isEnabled).length} ACTIVE REMINDERS
+                  </span>
+                </div>
+                <p className="text-[10px] text-slate-400 mb-4 leading-relaxed font-sans">
+                  The dashboard checks these records to alert you of upcoming milestones in advance. Select bell icons on campaign listings to create or edit reminders.
+                </p>
+
+                {reminders.length > 0 ? (
+                  <div className="space-y-3">
+                    {reminders.map((rem, idx) => {
+                      const eventRef = events.find(ev => ev.id === rem.eventId);
+                      return (
+                        <div key={idx} className="bg-slate-950 border border-slate-850 p-3 rounded-xl flex items-start justify-between gap-3 text-xs">
+                          <div className="min-w-0 space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[9px] bg-amber-950 text-amber-400 border border-amber-800/60 px-1 rounded font-mono font-bold">
+                                {rem.daysBefore === 0 ? "On day of event" : `${rem.daysBefore} days before`}
+                              </span>
+                              <h5 className="font-bold text-slate-200 truncate">{rem.eventTitle}</h5>
+                            </div>
+                            <p className="text-[10px] text-slate-400 font-mono">Event Target Date: {rem.eventDate}</p>
+                            {rem.notes && (
+                              <p className="text-[10px] bg-slate-900/60 text-slate-300 p-2 border border-slate-800/40 rounded italic font-sans leading-relaxed">
+                                {rem.notes}
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {eventRef && (
+                              <button
+                                onClick={() => {
+                                  setReminderModalEvent(eventRef);
+                                  setReminderDaysBefore(rem.daysBefore);
+                                  setReminderNotes(rem.notes || "");
+                                }}
+                                className="bg-slate-900 hover:bg-slate-850 border border-slate-800 text-slate-300 hover:text-slate-100 p-1.5 rounded-lg transition-colors cursor-pointer"
+                                title="Edit reminder notes or timing"
+                              >
+                                Edit
+                              </button>
+                            )}
+                            <button
+                              onClick={() => {
+                                const updated = reminders.filter(r => r.eventId !== rem.eventId);
+                                setReminders(updated);
+                                if (onTriggerNotification) {
+                                  onTriggerNotification("Removed reminder successfully.", "sync");
+                                }
+                              }}
+                              className="bg-rose-950/40 hover:bg-rose-900/40 border border-rose-900/40 text-rose-400 p-1.5 rounded-lg transition-colors cursor-pointer"
+                              title="Delete reminder completely"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center bg-slate-950 border border-slate-850 p-4 rounded-xl text-xs text-slate-500">
+                    No active deadline reminders set. Try applying to an event and clicking its Bell icon!
+                  </div>
+                )}
+              </div>
+
+              {/* Direct Tab Exporters & Archive Downloads */}
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl flex flex-col justify-between">
+                <div>
+                  <h4 className="text-xs font-bold text-slate-100 uppercase tracking-wider font-mono flex items-center gap-2 mb-2">
+                    <Download className="w-4 h-4 text-indigo-400" />
+                    <span>Instant Social Impact Reports Exporter</span>
+                  </h4>
+                  <p className="text-[10px] text-slate-400 leading-relaxed mb-4">
+                    Download offline backups of your full volunteering record instantly. Backups include full credential indexes, registered events, feedback comment catalogs, and monthly hours logs.
+                  </p>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    <button
+                      onClick={handleExportJSON}
+                      className="bg-indigo-600 hover:bg-indigo-500 text-white font-sans text-xs font-bold py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-sm text-center"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Download JSON</span>
+                    </button>
+                    <button
+                      onClick={handleExportCSV}
+                      className="bg-indigo-950 hover:bg-indigo-900 text-indigo-300 border border-indigo-800/60 font-sans text-xs font-bold py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-sm text-center"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Download CSV</span>
+                    </button>
+                    <button
+                      onClick={handleExportTXT}
+                      className="bg-slate-850 hover:bg-slate-800 text-slate-300 border border-slate-700/60 font-sans text-xs font-bold py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-sm text-center"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Download TXT Report</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
             </div>
           )}
             </div>
@@ -2652,6 +3704,349 @@ export default function Dashboard({
                 Submit Qualitative Feedback & Receive +15 XP
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* 5. REMINDER CONFIGURATION MODAL */}
+      {reminderModalEvent && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fade-in no-print">
+          <div className="bg-slate-900 border-2 border-amber-500/80 rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 text-slate-100 relative overflow-hidden animate-zoom-in">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-amber-600/10 blur-3xl rounded-full"></div>
+
+            {/* Header */}
+            <div className="flex justify-between items-start">
+              <div className="flex items-center gap-2">
+                <Bell className="w-5 h-5 text-amber-400 animate-bounce" />
+                <div>
+                  <h4 className="font-black text-slate-100 text-sm uppercase tracking-wider">Commitment Deadline Reminder</h4>
+                  <p className="text-[10px] text-slate-400 font-mono">Stay on track with your registered campaign milestones!</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setReminderModalEvent(null)}
+                className="text-slate-400 hover:text-slate-100 bg-slate-800 hover:bg-slate-700 px-2.5 py-1 rounded-xl text-xs font-mono font-bold cursor-pointer transition-colors"
+              >
+                CLOSE
+              </button>
+            </div>
+
+            <div className="bg-slate-950 p-3.5 rounded-2xl border border-slate-800 space-y-1">
+              <span className="text-[9px] font-mono font-bold text-indigo-400 uppercase tracking-wider block">Target Campaign</span>
+              <h5 className="text-xs font-bold text-slate-200">{reminderModalEvent.title}</h5>
+              <p className="text-[10px] text-slate-500 font-mono flex items-center gap-1 mt-1">
+                <span>NGO: {reminderModalEvent.ngoName}</span>
+                <span>•</span>
+                <span>Date: {reminderModalEvent.date}</span>
+              </p>
+            </div>
+
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const existingIndex = reminders.findIndex(r => r.eventId === reminderModalEvent.id);
+              const newReminder = {
+                eventId: reminderModalEvent.id,
+                eventTitle: reminderModalEvent.title,
+                eventDate: reminderModalEvent.date,
+                daysBefore: reminderDaysBefore,
+                notes: reminderNotes,
+                isEnabled: true
+              };
+
+              let updatedReminders = [...reminders];
+              if (existingIndex > -1) {
+                updatedReminders[existingIndex] = newReminder;
+              } else {
+                updatedReminders.push(newReminder);
+              }
+              
+              setReminders(updatedReminders);
+              setReminderModalEvent(null);
+              
+              if (onTriggerNotification) {
+                onTriggerNotification(`Reminder set successfully! We will notify you ${reminderDaysBefore} days before ${reminderModalEvent.date}.`, "sync");
+              }
+              logActivity("streak", `Configured deadline reminder for "${reminderModalEvent.title}".`);
+            }} className="space-y-4">
+              
+              {/* Days Before Selector */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-mono font-bold text-slate-400 block uppercase tracking-wider">Notify Me</label>
+                <select
+                  value={reminderDaysBefore}
+                  onChange={(e) => setReminderDaysBefore(parseInt(e.target.value))}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
+                >
+                  <option value={0}>On the Day of the Event ({reminderModalEvent.date})</option>
+                  <option value={1}>1 Day Before</option>
+                  <option value={2}>2 Days Before</option>
+                  <option value={3}>3 Days Before</option>
+                  <option value={5}>5 Days Before</option>
+                  <option value={7}>1 Week Before</option>
+                </select>
+              </div>
+
+              {/* Reminder Custom Notes */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-mono font-bold text-slate-400 block uppercase tracking-wider">Reminder Notes / Checklists</label>
+                <textarea
+                  placeholder="e.g. Bring water bottles, wear comfortable sneakers, confirm shuttle route, etc..."
+                  value={reminderNotes}
+                  onChange={(e) => setReminderNotes(e.target.value)}
+                  className="w-full h-20 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500 placeholder-slate-600 resize-none font-sans"
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3">
+                {reminders.some(r => r.eventId === reminderModalEvent.id) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const updated = reminders.filter(r => r.eventId !== reminderModalEvent.id);
+                      setReminders(updated);
+                      setReminderModalEvent(null);
+                      if (onTriggerNotification) {
+                        onTriggerNotification("Removed reminder for this campaign.", "sync");
+                      }
+                    }}
+                    className="flex-1 bg-rose-950/40 border border-rose-900/60 hover:bg-rose-900/50 text-rose-400 font-sans text-xs font-bold py-2.5 rounded-xl transition-all cursor-pointer text-center"
+                  >
+                    Remove
+                  </button>
+                )}
+                <button
+                  type="submit"
+                  className="flex-2 bg-amber-600 hover:bg-amber-500 text-slate-950 font-sans text-xs font-black py-2.5 rounded-xl transition-all cursor-pointer text-center flex items-center justify-center gap-1"
+                >
+                  <ShieldCheck className="w-4 h-4 text-slate-950" />
+                  Save & Enable Reminder
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 6. COMPARE NGOs MODAL */}
+      {showCompareModal && (
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fade-in no-print">
+          <div className="bg-slate-900 border-2 border-teal-500/80 rounded-3xl max-w-4xl w-full p-6 shadow-2xl space-y-5 text-slate-100 relative overflow-hidden animate-zoom-in max-h-[90vh] overflow-y-auto">
+            {/* Ambient Background Aura */}
+            <div className="absolute top-0 right-0 w-32 h-32 bg-teal-600/10 blur-3xl rounded-full"></div>
+            <div className="absolute bottom-0 left-0 w-32 h-32 bg-indigo-600/10 blur-3xl rounded-full"></div>
+
+            {/* Header */}
+            <div className="flex justify-between items-start border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <HeartHandshake className="w-5 h-5 text-teal-400" />
+                <div>
+                  <h4 className="font-black text-slate-100 text-sm uppercase tracking-wider font-sans">NGO Partner Comparison Hub Hub</h4>
+                  <p className="text-[10px] text-slate-400 font-mono">Side-by-side impact analysis & satisfaction scores</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowCompareModal(false)}
+                className="text-slate-400 hover:text-slate-100 bg-slate-800 hover:bg-slate-700 px-2.5 py-1 rounded-xl text-[10px] font-mono font-bold cursor-pointer transition-colors"
+              >
+                CLOSE
+              </button>
+            </div>
+
+            {/* Selector Dropdowns */}
+            <div className="grid grid-cols-2 gap-4 bg-slate-950 p-4 rounded-2xl border border-slate-850">
+              <div>
+                <label className="text-[9px] font-mono font-bold text-slate-400 block uppercase tracking-wider mb-1.5">Select NGO 1</label>
+                <select
+                  value={compareNgo1}
+                  onChange={(e) => setCompareNgo1(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-250 focus:outline-none focus:border-teal-500 font-sans"
+                >
+                  {initialNGOs.map(ngo => (
+                    <option key={ngo.id} value={ngo.id} disabled={ngo.id === compareNgo2}>{ngo.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-[9px] font-mono font-bold text-slate-400 block uppercase tracking-wider mb-1.5">Select NGO 2</label>
+                <select
+                  value={compareNgo2}
+                  onChange={(e) => setCompareNgo2(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-250 focus:outline-none focus:border-teal-500 font-sans"
+                >
+                  {initialNGOs.map(ngo => (
+                    <option key={ngo.id} value={ngo.id} disabled={ngo.id === compareNgo1}>{ngo.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Comparison Table */}
+            {(() => {
+              const ngo1 = initialNGOs.find(n => n.id === compareNgo1) || initialNGOs[0];
+              const ngo2 = initialNGOs.find(n => n.id === compareNgo2) || initialNGOs[1];
+
+              if (!ngo1 || !ngo2) return null;
+
+              const rating1 = ngoRatings[ngo1.id] || ngo1.trustRating;
+              const rating2 = ngoRatings[ngo2.id] || ngo2.trustRating;
+
+              const activeCount1 = initialEvents.filter(e => e.ngoId === ngo1.id && e.status === "ACTIVE").length;
+              const activeCount2 = initialEvents.filter(e => e.ngoId === ngo2.id && e.status === "ACTIVE").length;
+
+              const complCount1 = initialEvents.filter(e => e.ngoId === ngo1.id && e.status === "COMPLETED").length;
+              const complCount2 = initialEvents.filter(e => e.ngoId === ngo2.id && e.status === "COMPLETED").length;
+
+              return (
+                <div className="bg-slate-950 rounded-2xl border border-slate-850 overflow-hidden">
+                  <table className="w-full text-xs text-left text-slate-300">
+                    <thead className="text-[9px] uppercase tracking-widest font-mono text-slate-400 bg-slate-900/60 border-b border-slate-850">
+                      <tr>
+                        <th className="px-4 py-3 w-1/3">Metric / Field</th>
+                        <th className="px-4 py-3 bg-teal-950/10 text-teal-300 font-bold">{ngo1.name}</th>
+                        <th className="px-4 py-3 bg-indigo-950/10 text-indigo-300 font-bold">{ngo2.name}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-900">
+                      {/* Focus Cause Area */}
+                      <tr>
+                        <td className="px-4 py-3.5 font-bold font-mono text-[9px] text-slate-400">FOCUS AREAS</td>
+                        <td className="px-4 py-3.5">
+                          <div className="flex flex-wrap gap-1">
+                            {ngo1.focus.map((f, i) => (
+                              <span key={i} className="bg-teal-950/40 text-teal-400 border border-teal-900/40 text-[9px] px-2 py-0.5 rounded-md font-medium">{f}</span>
+                            ))}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3.5">
+                          <div className="flex flex-wrap gap-1">
+                            {ngo2.focus.map((f, i) => (
+                              <span key={i} className="bg-indigo-950/40 text-indigo-400 border border-indigo-900/40 text-[9px] px-2 py-0.5 rounded-md font-medium">{f}</span>
+                            ))}
+                          </div>
+                        </td>
+                      </tr>
+
+                      {/* Geographic Base */}
+                      <tr>
+                        <td className="px-4 py-3.5 font-bold font-mono text-[9px] text-slate-400">LOCATION</td>
+                        <td className="px-4 py-3.5 font-sans font-medium">{ngo1.location}</td>
+                        <td className="px-4 py-3.5 font-sans font-medium">{ngo2.location}</td>
+                      </tr>
+
+                      {/* Satisfaction Score */}
+                      <tr>
+                        <td className="px-4 py-3.5 font-bold font-mono text-[9px] text-slate-400">SATISFACTION SCORE</td>
+                        <td className="px-4 py-3.5 bg-teal-950/5">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono font-black text-teal-400 text-sm">{rating1}%</span>
+                            <div className="flex-1 bg-slate-900 h-1.5 rounded-full overflow-hidden border border-slate-800">
+                              <div className="bg-teal-500 h-full rounded-full" style={{ width: `${rating1}%` }}></div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3.5 bg-indigo-950/5">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono font-black text-indigo-400 text-sm">{rating2}%</span>
+                            <div className="flex-1 bg-slate-900 h-1.5 rounded-full overflow-hidden border border-slate-800">
+                              <div className="bg-indigo-500 h-full rounded-full" style={{ width: `${rating2}%` }}></div>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+
+                      {/* Verification Status */}
+                      <tr>
+                        <td className="px-4 py-3.5 font-bold font-mono text-[9px] text-slate-400">VERIFIED STATUS</td>
+                        <td className="px-4 py-3.5">
+                          {ngo1.verified ? (
+                            <span className="bg-emerald-950/60 text-emerald-400 border border-emerald-900 text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-lg">
+                              ✓ Vetted Liaison
+                            </span>
+                          ) : (
+                            <span className="text-slate-500">Standard Partner</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3.5">
+                          {ngo2.verified ? (
+                            <span className="bg-emerald-950/60 text-emerald-400 border border-emerald-900 text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-lg">
+                              ✓ Vetted Liaison
+                            </span>
+                          ) : (
+                            <span className="text-slate-500">Standard Partner</span>
+                          )}
+                        </td>
+                      </tr>
+
+                      {/* Active Campaigns */}
+                      <tr>
+                        <td className="px-4 py-3.5 font-bold font-mono text-[9px] text-slate-400">ACTIVE DEPLOYMENTS</td>
+                        <td className="px-4 py-3.5 font-mono text-slate-200 font-bold">{activeCount1} campaigns running</td>
+                        <td className="px-4 py-3.5 font-mono text-slate-200 font-bold">{activeCount2} campaigns running</td>
+                      </tr>
+
+                      {/* Completed Campaigns */}
+                      <tr>
+                        <td className="px-4 py-3.5 font-bold font-mono text-[9px] text-slate-400">HISTORIC COMPLETIONS</td>
+                        <td className="px-4 py-3.5 font-mono text-slate-200 font-bold">{complCount1} completed</td>
+                        <td className="px-4 py-3.5 font-mono text-slate-200 font-bold">{complCount2} completed</td>
+                      </tr>
+
+                      {/* Liaison Contact POC */}
+                      <tr>
+                        <td className="px-4 py-3.5 font-bold font-mono text-[9px] text-slate-400">POC LIAISON</td>
+                        <td className="px-4 py-3.5">
+                          <div className="font-bold text-slate-200">{ngo1.pocName}</div>
+                          <div className="text-[10px] text-slate-500 mt-0.5 font-mono">{ngo1.pocPhone}</div>
+                        </td>
+                        <td className="px-4 py-3.5">
+                          <div className="font-bold text-slate-200">{ngo2.pocName}</div>
+                          <div className="text-[10px] text-slate-500 mt-0.5 font-mono">{ngo2.pocPhone}</div>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })()}
+
+            <div className="flex justify-end pt-2 border-t border-slate-800">
+              <button
+                onClick={() => setShowCompareModal(false)}
+                className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-2 px-6 rounded-xl transition-all cursor-pointer"
+              >
+                Return to Dashboard
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 7. FIELD EVIDENCE LIGHTBOX MODAL */}
+      {lightboxPhoto && (
+        <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fade-in no-print">
+          <div className="bg-slate-900 border-2 border-indigo-500 rounded-3xl max-w-2xl w-full p-4 shadow-2xl relative overflow-hidden flex flex-col items-center animate-zoom-in">
+            <button
+              onClick={() => setLightboxPhoto(null)}
+              className="absolute top-3 right-3 text-slate-400 hover:text-slate-100 bg-slate-800 hover:bg-slate-700 p-2 rounded-xl text-xs font-mono font-bold cursor-pointer transition-colors z-10"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <div className="relative rounded-2xl overflow-hidden border border-slate-800 max-h-[70vh] flex items-center justify-center bg-black">
+              <img
+                src={lightboxPhoto}
+                alt="SevaSetu Verified Field Evidence"
+                className="max-w-full max-h-full object-contain"
+              />
+              <div className="absolute top-4 left-4 bg-emerald-500/95 backdrop-blur-sm text-slate-950 font-black text-[9px] uppercase tracking-widest px-3 py-1 rounded-lg flex items-center gap-1 shadow-md font-mono select-none">
+                <CheckCircle className="w-3.5 h-3.5 text-slate-950 fill-none shrink-0" />
+                <span>Verified Field Evidence</span>
+              </div>
+            </div>
+            <p className="text-[10.5px] text-slate-400 font-mono mt-3.5 uppercase tracking-wider text-center">
+              SevaSetu Decentralized Evidence Log • Cryptographic Verification Complete
+            </p>
           </div>
         </div>
       )}

@@ -283,12 +283,61 @@ export default function IndiaMap({
                   {/* State Name Labels */}
                   <text
                     x={st.center.x}
-                    y={st.center.y}
-                    className="fill-slate-400 text-[10px] font-mono pointer-events-none select-none text-center font-medium opacity-70"
+                    y={st.center.y + 12}
+                    className="fill-slate-400 text-[10px] font-mono pointer-events-none select-none text-center font-medium opacity-75"
                     textAnchor="middle"
                   >
                     {st.name}
                   </text>
+
+                  {/* Custom Animated SVG Pin */}
+                  {hasData && indiaStatesData[st.key] && (
+                    <g
+                      className="cursor-pointer group/pin"
+                      onClick={() => {
+                        onSetSelectedStateKey(st.key);
+                        if (onStateSelect) {
+                          onStateSelect(st.key, indiaStatesData[st.key]);
+                        }
+                      }}
+                      onMouseEnter={() => setHoveredStateKey(st.key)}
+                      onMouseLeave={() => setHoveredStateKey(null)}
+                    >
+                      {/* Pulse Ring under the pin */}
+                      <circle
+                        cx={st.center.x}
+                        cy={st.center.y - 6}
+                        r={(4 + (indiaStatesData[st.key]?.events || 0) * 0.6) * 1.4}
+                        className="fill-indigo-500/10 stroke-indigo-400/30 animate-ping pointer-events-none"
+                        style={{ animationDuration: "2.5s" }}
+                      />
+                      {/* Pin Shape Path */}
+                      <path
+                        d={`M ${st.center.x} ${st.center.y - 2} 
+                            C ${st.center.x - (4 + (indiaStatesData[st.key]?.events || 0) * 0.6)/2} ${st.center.y - 2 - (4 + (indiaStatesData[st.key]?.events || 0) * 0.6)/2} 
+                              ${st.center.x - (4 + (indiaStatesData[st.key]?.events || 0) * 0.6)/2} ${st.center.y - 2 - (4 + (indiaStatesData[st.key]?.events || 0) * 0.6)} 
+                              ${st.center.x} ${st.center.y - 2 - (4 + (indiaStatesData[st.key]?.events || 0) * 0.6)} 
+                            C ${st.center.x + (4 + (indiaStatesData[st.key]?.events || 0) * 0.6)/2} ${st.center.y - 2 - (4 + (indiaStatesData[st.key]?.events || 0) * 0.6)} 
+                              ${st.center.x + (4 + (indiaStatesData[st.key]?.events || 0) * 0.6)/2} ${st.center.y - 2 - (4 + (indiaStatesData[st.key]?.events || 0) * 0.6)/2} 
+                              ${st.center.x} ${st.center.y - 2}`}
+                        className={`fill-indigo-500 hover:fill-indigo-400 stroke-indigo-200 transition-all duration-300 ${
+                          isSelected ? "fill-emerald-500 stroke-emerald-100 animate-bounce" : "animate-pulse"
+                        }`}
+                        style={{
+                          transformOrigin: `${st.center.x}px ${st.center.y - 2}px`,
+                          animationDuration: isSelected ? "1.5s" : `${2.5 + (st.key.charCodeAt(0) % 4) * 0.5}s`
+                        }}
+                        strokeWidth="1.2"
+                      />
+                      {/* Inner dot */}
+                      <circle
+                        cx={st.center.x}
+                        cy={st.center.y - 2 - (4 + (indiaStatesData[st.key]?.events || 0) * 0.6) * 0.65}
+                        r={Math.max(1.5, (4 + (indiaStatesData[st.key]?.events || 0) * 0.6) * 0.2)}
+                        className="fill-slate-950"
+                      />
+                    </g>
+                  )}
                 </g>
               );
             })}
