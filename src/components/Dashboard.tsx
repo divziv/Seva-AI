@@ -12,7 +12,7 @@ import {
 import { 
   Sparkles, ShieldAlert, Award, FileSpreadsheet, Send, Search, BrainCircuit,
   TrendingUp, Users, HeartHandshake, AlertTriangle, MessageSquare, Briefcase, Plus, CheckCircle, Flame, Settings, Info, ShieldCheck, HelpCircle,
-  Printer, FileText, Calendar, Star, Clock, MapPin, Bell, Download, Camera, Trash2, Image, Video
+  Printer, FileText, Calendar, Star, Clock, MapPin, Bell, Download, Camera, Trash2, Image, Video, X
 } from "lucide-react";
 import { 
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
@@ -2702,7 +2702,7 @@ export default function Dashboard({
                   </div>
 
                   <p className="text-[10.5px] text-slate-400 leading-relaxed">
-                    Welcome to SevaAI! Follow these three simple pillars to build your verified public social impact profile:
+                    Welcome to SevaSetu! Follow these three simple pillars to build your verified public social impact profile:
                   </p>
 
                   <div className="space-y-3 pt-1">

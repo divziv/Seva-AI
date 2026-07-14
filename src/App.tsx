@@ -204,13 +204,13 @@ export default function App() {
           <div className="flex-1 space-y-6 max-w-2xl text-slate-800 animate-fade-in">
             <div className="space-y-3">
               <span className="inline-flex items-center gap-1.5 text-[10px] font-black tracking-widest text-indigo-600 bg-indigo-50 border border-indigo-100 px-3 py-1 rounded-full uppercase font-mono shadow-xs">
-                🇮🇳 SevaAI • Responsible impact
+                🇮🇳 SevaSetu • Made for India
               </span>
               <h1 className="text-4xl sm:text-5xl font-black text-slate-900 tracking-tight leading-none">
-                SevaAI <span className="text-indigo-600">.</span> Offline-First AI Platform
+                SevaSetu
               </h1>
               <p className="text-sm font-semibold text-slate-600 leading-snug">
-                Connecting Volunteers, NGOs, CSR, and Communities through Responsible AI.
+                Made for India. Built in India. Powered by AI.
               </p>
             </div>
 
@@ -234,7 +234,7 @@ export default function App() {
             <div className="bg-gradient-to-br from-indigo-50 to-indigo-100/30 border border-indigo-200/50 p-5 rounded-2xl space-y-3 shadow-xs">
               <h4 className="text-[10.5px] font-bold text-indigo-800 font-mono uppercase tracking-wider flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                SevaAI Platform Insights & Fun Facts
+                SevaSetu Platform Insights & Fun Facts
               </h4>
               <ul className="text-xs text-indigo-950 space-y-2.5">
                 <li className="flex items-start gap-2">
@@ -247,7 +247,7 @@ export default function App() {
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-indigo-600 shrink-0 font-bold mt-0.5">•</span>
-                  <span><strong>Zero-Waste Carbon Footprint</strong>: Volunteers using SevaAI localized route planning saved an estimated <strong>1,400+ liters of fuel</strong> in Q2 2026.</span>
+                  <span><strong>Zero-Waste Carbon Footprint</strong>: Volunteers using SevaSetu localized route planning saved an estimated <strong>1,400+ liters of fuel</strong> in Q2 2026.</span>
                 </li>
               </ul>
             </div>
